@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { getServerAuthSession } from '@/lib/server-auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import type { LedgerEntry } from '@/types'
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await getServerAuthSession()
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(req.url)
-  const type = searchParams.get('type') // 'item' | 'day'
+  const type = searchParams.get('type')
   const code = searchParams.get('code')
   const date = searchParams.get('date')
 
@@ -25,6 +31,9 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query.limit(500)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(data as LedgerEntry[])
 }

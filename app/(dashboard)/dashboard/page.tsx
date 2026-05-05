@@ -1,10 +1,10 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { DataTable } from '@/components/ui/DataTable'
-import { StockItem } from '@/types'
+import type { StockItem } from '@/types'
 import { ColumnDef } from '@tanstack/react-table'
 
-const columns: ColumnDef<StockItem, any>[] = [
+const columns: ColumnDef<StockItem, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
   { accessorKey: 'item_name', header: 'Item Name' },
   {
@@ -36,7 +36,10 @@ const columns: ColumnDef<StockItem, any>[] = [
 export default function DashboardPage() {
   const { data: stocks = [], isLoading } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
-    queryFn: () => fetch('/api/stock').then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch('/api/stock')
+      return response.json() as Promise<StockItem[]>
+    },
   })
 
   const total = stocks.length

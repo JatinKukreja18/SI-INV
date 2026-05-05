@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# StockLedger
 
-## Getting Started
+Inventory and edit-out tracking app for supplier stock-ins, Excel-based end-of-day edit-outs, and item/day ledger review.
 
-First, run the development server:
+## What It Does
+
+- Admin can post stock-in batches, view the full ledger, and review upload batch history.
+- Staff can upload edit-out Excel files and view leftover stock.
+- Edit-out uploads validate before posting:
+  - unknown item codes are blocked
+  - shortages are blocked
+  - duplicate file/date uploads require an explicit override
+- Batch posting is handled by a single Supabase SQL function so the ledger and stock update together.
+
+## Local Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create `.env.local` from `env.local.example` and fill in:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXTAUTH_SECRET=
+NEXTAUTH_URL=http://localhost:3000
+```
+
+3. Run the SQL in [supabase-schema.sql](/Users/kukreja/Projects/Asiana/SI-Inventory/supabase-schema.sql) inside the Supabase SQL editor.
+
+4. Manually create at least one admin user and one staff user in the `users` table using bcrypt password hashes.
+
+5. Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. Verify production build:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment Notes
 
-## Learn More
+- Production builds use `next build --webpack` because Turbopack native bindings were unavailable in this environment.
+- Point `NEXTAUTH_URL` at your live domain, for example `https://inv.sekaiichiba.com`.
+- Run the SQL schema updates in production Supabase before deploying the app.
 
-To learn more about Next.js, take a look at the following resources:
+## Testing Checklist
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Admin can sign in and post a stock-in batch.
+- Staff can sign in and upload an edit-out file.
+- A batch with insufficient stock is rejected with shortage details.
+- Re-uploading the same file and date shows the duplicate override warning.
+- Staff cannot open `/stock-in`, `/ledger/item`, `/ledger/day`, or call the ledger API successfully.
