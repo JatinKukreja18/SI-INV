@@ -20,3 +20,6 @@ yarn-error.log*
 .env*
 *.tar.gz
 tsconfig.tsbuildinfo
+.claude
+.agents
+skills-lock.json

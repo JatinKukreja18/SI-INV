@@ -1,32 +1,32 @@
-'use client'
+'use client';
 
-import { useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
-import { useQueryClient } from '@tanstack/react-query'
-import { ColumnDef } from '@tanstack/react-table'
-import { DataTable } from '@/components/ui/DataTable'
-import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory'
-import type { BatchItemInput, BatchOperationResult } from '@/types'
+import { useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
+import { useQueryClient } from '@tanstack/react-query';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/DataTable';
+import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
+import type { BatchItemInput, BatchOperationResult } from '@/types';
 
 const columns: ColumnDef<BatchItemInput, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
   { accessorKey: 'item_name', header: 'Item Name' },
   { accessorKey: 'qty', header: 'Quantity', cell: ({ getValue }) => (getValue() as number).toLocaleString('en-IN') },
   { accessorKey: 'unit_price', header: 'Unit Price', cell: ({ getValue }) => `₹${(getValue() as number).toFixed(2)}` },
-]
+];
 
 export default function StockInClient() {
-  const queryClient = useQueryClient()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [items, setItems] = useState<BatchItemInput[]>([])
-  const [form, setForm] = useState({ item_code: '', item_name: '', qty: '', unit_price: '' })
-  const [result, setResult] = useState<BatchOperationResult | null>(null)
-  const [saving, setSaving] = useState(false)
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [items, setItems] = useState<BatchItemInput[]>([]);
+  const [form, setForm] = useState({ item_code: '', item_name: '', qty: '', unit_price: '' });
+  const [result, setResult] = useState<BatchOperationResult | null>(null);
+  const [saving, setSaving] = useState(false);
 
   function addManual() {
     if (!form.item_code.trim() || !form.item_name.trim() || !form.qty.trim()) {
-      return
+      return;
     }
 
     const nextItem: BatchItemInput = {
@@ -34,63 +34,77 @@ export default function StockInClient() {
       item_name: form.item_name.trim(),
       qty: Number(form.qty),
       unit_price: Number(form.unit_price) || 0,
-    }
+    };
 
     if (nextItem.qty <= 0) {
-      return
+      return;
     }
 
-    setItems(currentItems => mergeBatchItems(currentItems, nextItem))
-    setForm({ item_code: '', item_name: '', qty: '', unit_price: '' })
+    setItems((currentItems) => mergeBatchItems(currentItems, nextItem));
+    setForm({ item_code: '', item_name: '', qty: '', unit_price: '' });
   }
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (!file) {
-      return
+      return;
     }
 
-    const reader = new FileReader()
-    reader.onload = loadEvent => {
-      const workbook = XLSX.read(loadEvent.target?.result, { type: 'binary' })
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, { defval: '' })
-      const parsedItems = normalizeSheetRows(rows)
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const workbook = XLSX.read(loadEvent.target?.result, { type: 'binary', cellDates: true });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-      setItems(currentItems => {
-        let mergedItems = currentItems
-        for (const item of parsedItems) {
-          mergedItems = mergeBatchItems(mergedItems, item)
+      const rawRows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: '' }) as string[][];
+      const KEYWORDS = ['item code', 'item name', 'qty', 'quantity', 'name', 'price'];
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
+        const rowText = rawRows[i].join(' ').toLowerCase();
+        if (KEYWORDS.filter((k) => rowText.includes(k)).length >= 2) {
+          headerRowIndex = i;
+          break;
         }
-        return mergedItems
-      })
-    }
+      }
 
-    reader.readAsBinaryString(file)
-    event.target.value = ''
+      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, {
+        defval: '',
+        range: headerRowIndex,
+      });
+      const parsedItems = normalizeSheetRows(rows);
+
+      setItems((currentItems) => {
+        let mergedItems = currentItems;
+        for (const item of parsedItems) {
+          mergedItems = mergeBatchItems(mergedItems, item);
+        }
+        return mergedItems;
+      });
+    };
+    reader.readAsBinaryString(file);
+    event.target.value = '';
   }
 
   async function save() {
     if (!items.length) {
-      return
+      return;
     }
 
-    setSaving(true)
-    setResult(null)
+    setSaving(true);
+    setResult(null);
 
     try {
       const response = await fetch('/api/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, items }),
-      })
+      });
 
-      const data = await parseBatchResponse(response)
-      setResult(data)
+      const data = await parseBatchResponse(response);
+      setResult(data);
 
       if (data.success) {
-        setItems([])
-        queryClient.invalidateQueries({ queryKey: ['stocks'] })
+        setItems([]);
+        queryClient.invalidateQueries({ queryKey: ['stocks'] });
       }
     } catch {
       setResult({
@@ -99,9 +113,9 @@ export default function StockInClient() {
         errors: ['Network error.'],
         shortages: [],
         postedItems: [],
-      })
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
@@ -117,13 +131,13 @@ export default function StockInClient() {
           <input
             type="date"
             value={date}
-            onChange={event => setDate(event.target.value)}
+            onChange={(event) => setDate(event.target.value)}
             className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 w-44"
           />
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-2">
-          {(['item_code', 'item_name', 'qty', 'unit_price'] as const).map(key => (
+          {(['item_code', 'item_name', 'qty', 'unit_price'] as const).map((key) => (
             <div key={key}>
               <label className="block text-xs text-gray-400 mb-1">
                 {key === 'item_code' ? 'Item Code' : key === 'item_name' ? 'Item Name' : key === 'qty' ? 'Quantity' : 'Unit Price (₹)'}
@@ -131,8 +145,8 @@ export default function StockInClient() {
               <input
                 type={key === 'qty' || key === 'unit_price' ? 'number' : 'text'}
                 value={form[key]}
-                onChange={event => setForm(currentForm => ({ ...currentForm, [key]: event.target.value }))}
-                onKeyDown={event => event.key === 'Enter' && addManual()}
+                onChange={(event) => setForm((currentForm) => ({ ...currentForm, [key]: event.target.value }))}
+                onKeyDown={(event) => event.key === 'Enter' && addManual()}
                 placeholder={key === 'item_code' ? 'ITM001' : key === 'item_name' ? 'Item name' : key === 'qty' ? '0' : '0.00'}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400"
               />
@@ -182,10 +196,10 @@ export default function StockInClient() {
             {result.success ? 'Batch posted successfully' : 'Batch could not be posted'}
           </h2>
           <p className={`text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-            {result.success ? `${result.savedCount} item(s) posted.` : result.errors[0] ?? 'Please review the batch and try again.'}
+            {result.success ? `${result.savedCount} item(s) posted.` : (result.errors[0] ?? 'Please review the batch and try again.')}
           </p>
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -1,88 +1,88 @@
-export type Role = 'admin' | 'staff'
+export type Role = 'admin' | 'staff';
 
 export interface User {
-  id: string
-  name: string
-  email: string
-  role: Role
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
 }
 
 export interface StockItem {
-  id: string
-  item_code: string
-  item_name: string
-  current_qty: number
-  last_price: number
-  created_at: string
-  updated_at: string
+  id: string;
+  item_code: string;
+  item_name: string;
+  current_qty: number;
+  last_price: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LedgerEntry {
-  id: string
-  entry_date: string
-  item_code: string
-  item_name: string
-  entry_type: 'in' | 'out'
-  qty: number
-  unit_price: number
-  balance_after: number
-  upload_batch_id?: string
-  created_by?: string
-  created_at: string
+  id: string;
+  entry_date: string;
+  item_code: string;
+  item_name: string;
+  entry_type: 'in' | 'out';
+  qty: number;
+  unit_price: number;
+  balance_after: number;
+  upload_batch_id?: string;
+  created_by?: string;
+  created_at: string;
 }
 
 export interface UploadBatch {
-  id: string
-  upload_date: string
-  batch_type: 'stock_in' | 'edit_out'
-  filename?: string
-  total_items: number
-  uploaded_by?: string
-  duplicate_override: boolean
-  created_at: string
+  id: string;
+  upload_date: string;
+  batch_type: 'stock_in' | 'edit_out';
+  filename?: string;
+  total_items: number;
+  uploaded_by?: string;
+  duplicate_override: boolean;
+  created_at: string;
 }
 
 export interface ExcelRow {
-  item_code: string
-  item_name: string
-  qty: number
-  unit_price: number
+  item_code: string;
+  item_name: string;
+  qty: number;
+  unit_price: number;
 }
 
-export type BatchItemInput = ExcelRow
+export type BatchItemInput = ExcelRow;
 
 export interface UploadPreviewRow extends ExcelRow {
-  current_stock: number
-  stock_after: number
-  warning?: string
+  current_stock: number;
+  stock_after: number;
+  warning?: string;
 }
 
 export interface BatchShortage {
-  item_code: string
-  item_name: string
-  requested_qty: number
-  available_qty: number
-  reason: string
+  item_code: string;
+  item_name: string;
+  requested_qty: number;
+  available_qty: number;
+  reason: string;
 }
 
 export interface PostedBatchItem extends ExcelRow {
-  previous_qty: number
-  new_qty: number
-  entry_type: 'in' | 'out'
+  previous_qty: number;
+  new_qty: number;
+  entry_type: 'in' | 'out';
 }
 
 export interface DuplicateBatchInfo {
-  batchId: string
-  filename: string
-  uploadDate: string
+  batchId: string;
+  filename: string;
+  uploadDate: string;
 }
 
 export interface BatchOperationResult {
-  success: boolean
-  batchId?: string
-  savedCount: number
-  errors: string[]
-  shortages: BatchShortage[]
-  postedItems: PostedBatchItem[]
-  duplicate?: DuplicateBatchInfo
+  success: boolean;
+  batchId?: string;
+  savedCount: number;
+  errors: string[];
+  shortages: BatchShortage[];
+  postedItems: PostedBatchItem[];
+  duplicate?: DuplicateBatchInfo;
 }
