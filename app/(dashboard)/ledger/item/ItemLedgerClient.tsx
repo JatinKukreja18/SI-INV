@@ -33,7 +33,9 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
   { accessorKey: 'balance_after', header: 'Balance', cell: ({ getValue }) => <span className="font-medium">{(getValue() as number).toLocaleString('en-IN')}</span> },
 ]
 
-export default function ItemLedgerClient() {
+export default function ItemMasterClient() {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState('')
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
@@ -53,50 +55,115 @@ export default function ItemLedgerClient() {
     enabled: Boolean(selectedCode),
   })
 
-  const selected = stocks.find(stock => stock.item_code === selectedCode)
+  const selected = stocks.find(s => s.item_code === selectedCode)
+
+  const query = search.trim().toLowerCase()
+  const filtered = query.length < 1 ? [] : stocks.filter(s =>
+    s.item_code.toLowerCase().includes(query) ||
+    (s.ean_code ?? '').toLowerCase().includes(query) ||
+    s.item_name.toLowerCase().includes(query)
+  ).slice(0, 8)
+
+  function selectStock(stock: StockItem) {
+    setSelectedCode(stock.item_code)
+    setSearch(stock.item_name)
+    setOpen(false)
+  }
+
+  const stockStatus = selected
+    ? selected.current_qty <= 0 ? { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' }
+    : selected.current_qty <= 5 ? { label: 'Low Stock', cls: 'bg-amber-100 text-amber-700' }
+    : { label: 'In Stock', cls: 'bg-green-100 text-green-700' }
+    : null
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-gray-900 mb-5">Item Ledger</h1>
+      <h1 className="text-lg font-medium text-gray-900 mb-5">Item Master</h1>
 
-      <div className="bg-white border border-gray-100 rounded-xl p-5">
-        <div className="mb-5">
-          <label className="block text-xs text-gray-500 mb-1">Select Item</label>
-          <select
-            value={selectedCode}
-            onChange={event => setSelectedCode(event.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 w-80"
-          >
-            <option value="">— Choose an item —</option>
-            {stocks.map(stock => (
-              <option key={stock.item_code} value={stock.item_code}>
-                {stock.item_code} — {stock.item_name}
-              </option>
-            ))}
-          </select>
+      <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
+        <div className="relative">
+          <label className="block text-xs text-gray-500 mb-1">Search by item code, EAN or name</label>
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setOpen(true); if (!e.target.value.trim()) setSelectedCode('') }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => setTimeout(() => setOpen(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && filtered.length === 1) selectStock(filtered[0])
+              if (e.key === 'Escape') setOpen(false)
+            }}
+            placeholder="Type item code, EAN or name…"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400"
+          />
+          {open && filtered.length > 0 && (
+            <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+              {filtered.map(stock => (
+                <button
+                  key={stock.item_code}
+                  onMouseDown={() => selectStock(stock)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                >
+                  <span className="text-xs text-gray-400 mr-2">{stock.item_code}</span>
+                  <span className="text-sm text-gray-900">{stock.item_name}</span>
+                  {stock.ean_code && <span className="text-xs text-gray-400 ml-2">· {stock.ean_code}</span>}
+                  <span className="float-right text-xs text-gray-400">Stock: {stock.current_qty}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
-        {selected && (
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Current Stock</p>
-              <p className="text-xl font-medium">{selected.current_qty.toLocaleString('en-IN')}</p>
+      {selected && (
+        <>
+          <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-base font-medium text-gray-900">{selected.item_name}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{selected.item_code}{selected.ean_code ? ` · EAN: ${selected.ean_code}` : ''}</p>
+              </div>
+              {stockStatus && (
+                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${stockStatus.cls}`}>{stockStatus.label}</span>
+              )}
             </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Last Price</p>
-              <p className="text-xl font-medium">₹{selected.last_price.toFixed(2)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Total Transactions</p>
-              <p className="text-xl font-medium">{entries.length}</p>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">Current Stock</p>
+                <p className={`text-xl font-medium ${selected.current_qty <= 0 ? 'text-red-600' : selected.current_qty <= 5 ? 'text-amber-600' : 'text-gray-900'}`}>
+                  {selected.current_qty.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">Last Price</p>
+                <p className="text-xl font-medium text-gray-900">₹{selected.last_price.toFixed(2)}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">Stock Value</p>
+                <p className="text-xl font-medium text-gray-900">₹{(selected.current_qty * selected.last_price).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-1">Total Transactions</p>
+                <p className="text-xl font-medium text-gray-900">{entries.length}</p>
+              </div>
             </div>
           </div>
-        )}
 
-        {!selectedCode && <p className="text-sm text-gray-400 py-8 text-center">Select an item to view its ledger</p>}
-        {selectedCode && isLoading && <p className="text-sm text-gray-400 py-8 text-center">Loading...</p>}
-        {selectedCode && !isLoading && <DataTable data={entries} columns={columns} />}
-      </div>
+          <div className="bg-white border border-gray-100 rounded-xl p-5">
+            <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-4">Transaction History</h2>
+            {isLoading
+              ? <p className="text-sm text-gray-400 py-8 text-center">Loading...</p>
+              : <DataTable data={entries} columns={columns} searchPlaceholder="Search transactions…" searchKey="entry_date" />
+            }
+          </div>
+        </>
+      )}
+
+      {!selectedCode && (
+        <div className="bg-white border border-gray-100 rounded-xl p-5">
+          <p className="text-sm text-gray-400 py-8 text-center">Search for an item to view its details and ledger</p>
+        </div>
+      )}
     </div>
   )
 }

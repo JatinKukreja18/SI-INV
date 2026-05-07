@@ -7,7 +7,7 @@ const adminNav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
   { href: '/stock-in', label: 'Stock In', icon: '↓' },
   { href: '/upload', label: 'Upload Sales', icon: '↑' },
-  { href: '/ledger/item', label: 'Item Ledger', icon: '≡' },
+  { href: '/ledger/item', label: 'Item Master', icon: '≡' },
   { href: '/ledger/day', label: 'Day Ledger', icon: '⊞' },
 ]
 
