@@ -3,17 +3,9 @@
 import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ColumnDef } from '@tanstack/react-table';
-import { DataTable } from '@/components/ui/DataTable';
 import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
 import type { BatchItemInput, BatchOperationResult, StockItem } from '@/types';
-
-const columns: ColumnDef<BatchItemInput, unknown>[] = [
-  { accessorKey: 'item_code', header: 'Code' },
-  { accessorKey: 'item_name', header: 'Item Name' },
-  { accessorKey: 'qty', header: 'Quantity', cell: ({ getValue }) => (getValue() as number).toLocaleString('en-IN') },
-  { accessorKey: 'unit_price', header: 'Unit Price', cell: ({ getValue }) => `₹${(getValue() as number).toFixed(2)}` },
-];
+import { toast } from 'sonner';
 
 export default function StockInClient() {
   const queryClient = useQueryClient();
@@ -126,11 +118,15 @@ export default function StockInClient() {
       setResult(data);
 
       if (data.success) {
+        toast.success(`${data.savedCount} items posted to stock`);
         setItems([]);
         setNameResolutions({});
         queryClient.invalidateQueries({ queryKey: ['stocks'] });
+      } else {
+        toast.error(data.errors[0] || 'Stock-in failed');
       }
     } catch {
+      toast.error('Network error — please try again.');
       setResult({
         success: false,
         savedCount: 0,
@@ -200,7 +196,55 @@ export default function StockInClient() {
             </button>
           </div>
 
-          <DataTable data={items} columns={columns} />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-3">Code</th>
+                  <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-3">Item Name</th>
+                  <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-3 w-24">Qty</th>
+                  <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-3 w-28">Unit Price (₹)</th>
+                  <th className="pb-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.item_code} className="border-b border-gray-50 hover:bg-gray-50/50">
+                    <td className="py-1.5 pr-3 text-gray-500 text-xs">{item.item_code}</td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        value={item.item_name}
+                        onChange={(e) => setItems(prev => prev.map(r => r.item_code === item.item_code ? { ...r, item_name: e.target.value } : r))}
+                        className="w-full px-2 py-1 border border-transparent hover:border-gray-200 focus:border-gray-400 rounded text-sm focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="number"
+                        value={item.qty}
+                        onChange={(e) => setItems(prev => prev.map(r => r.item_code === item.item_code ? { ...r, qty: Number(e.target.value) } : r))}
+                        className="w-full px-2 py-1 border border-transparent hover:border-gray-200 focus:border-gray-400 rounded text-sm focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      <input
+                        type="number"
+                        value={item.unit_price}
+                        onChange={(e) => setItems(prev => prev.map(r => r.item_code === item.item_code ? { ...r, unit_price: Number(e.target.value) } : r))}
+                        className="w-full px-2 py-1 border border-transparent hover:border-gray-200 focus:border-gray-400 rounded text-sm focus:outline-none"
+                      />
+                    </td>
+                    <td className="py-1.5">
+                      <button
+                        onClick={() => setItems(prev => prev.filter(r => r.item_code !== item.item_code))}
+                        className="text-gray-300 hover:text-red-500 text-xs px-1"
+                      >✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {nameMismatches.length > 0 && (
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">

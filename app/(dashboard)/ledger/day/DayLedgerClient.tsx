@@ -93,7 +93,7 @@ export default function DayLedgerClient() {
               <p className="text-xl font-medium text-green-600">{inItems.reduce((sum, entry) => sum + entry.qty, 0).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Edit-Out (units)</p>
+              <p className="text-xs text-gray-400 mb-1">Sales (units)</p>
               <p className="text-xl font-medium text-red-600">{outItems.reduce((sum, entry) => sum + entry.qty, 0).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">

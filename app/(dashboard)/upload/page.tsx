@@ -7,11 +7,12 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/DataTable';
 import { buildUploadPreview, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
 import type { BatchOperationResult, PostedBatchItem, StockItem, UploadPreviewRow } from '@/types';
+import { toast } from 'sonner';
 
 const confirmColumns: ColumnDef<UploadPreviewRow, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
   { accessorKey: 'item_name', header: 'Item Name' },
-  { accessorKey: 'qty', header: 'Edit-Out Qty', cell: ({ getValue }) => (getValue() as number).toLocaleString('en-IN') },
+  { accessorKey: 'qty', header: 'Sale Qty', cell: ({ getValue }) => (getValue() as number).toLocaleString('en-IN') },
   { accessorKey: 'unit_price', header: 'Price', cell: ({ getValue }) => `₹${(getValue() as number).toFixed(2)}` },
   { accessorKey: 'current_stock', header: 'Current Stock', cell: ({ getValue }) => (getValue() as number).toLocaleString('en-IN') },
   {
@@ -140,13 +141,17 @@ export default function UploadPage() {
       setResult(data);
 
       if (data.success) {
+        toast.success(`${data.savedCount} items saved successfully`);
         queryClient.invalidateQueries({ queryKey: ['stocks'] });
         setStep('done');
       } else {
-        setError(data.errors[0] || 'Upload failed');
+        const msg = data.errors[0] || 'Upload failed';
+        setError(msg);
+        toast.error(msg);
       }
     } catch {
       setError('Network error.');
+      toast.error('Network error — please try again.');
     } finally {
       setSaving(false);
     }
@@ -158,7 +163,7 @@ export default function UploadPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-gray-900 mb-5">Upload Edit-Out</h1>
+      <h1 className="text-lg font-medium text-gray-900 mb-5">Upload Sales</h1>
 
       {step === 'pick' && (
         <div className="bg-white border border-gray-100 rounded-xl p-5">

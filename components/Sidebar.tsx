@@ -6,14 +6,14 @@ import { signOut } from 'next-auth/react'
 const adminNav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
   { href: '/stock-in', label: 'Stock In', icon: '↓' },
-  { href: '/upload', label: 'Upload Edit-Out', icon: '↑' },
+  { href: '/upload', label: 'Upload Sales', icon: '↑' },
   { href: '/ledger/item', label: 'Item Ledger', icon: '≡' },
   { href: '/ledger/day', label: 'Day Ledger', icon: '⊞' },
 ]
 
 const staffNav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
-  { href: '/upload', label: 'Upload Edit-Out', icon: '↑' },
+  { href: '/upload', label: 'Upload Sales', icon: '↑' },
 ]
 
 export function Sidebar({ role, userName }: { role: string; userName: string }) {

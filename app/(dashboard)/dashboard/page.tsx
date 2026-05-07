@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { DataTable } from '@/components/ui/DataTable'
 import type { StockItem } from '@/types'
 import { ColumnDef } from '@tanstack/react-table'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 const columns: ColumnDef<StockItem, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
@@ -47,6 +48,18 @@ export default function DashboardPage() {
   const out = stocks.filter(s => s.current_qty <= 0).length
   const totalValue = stocks.reduce((sum, s) => sum + s.current_qty * s.last_price, 0)
 
+  type SalesDay = { date: string; day: string; revenue: number; profit: number }
+  const { data: salesData = [] } = useQuery<SalesDay[]>({
+    queryKey: ['sales', 'monthly'],
+    queryFn: async () => {
+      const response = await fetch('/api/sales/monthly')
+      return response.json() as Promise<SalesDay[]>
+    },
+  })
+  const monthRevenue = salesData.reduce((s, d) => s + d.revenue, 0)
+  const monthName = new Date().toLocaleString('en-IN', { month: 'long' })
+  const hasProfitData = salesData.some(d => d.profit > 0)
+
   return (
     <div>
       <h1 className="text-lg font-medium text-gray-900 mb-5">Dashboard</h1>
@@ -65,6 +78,28 @@ export default function DashboardPage() {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Sales — {monthName}</h2>
+          <p className="text-sm font-medium text-gray-900">₹{monthRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+        </div>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={salesData} barGap={2}>
+            <CartesianGrid vertical={false} stroke="#f3f4f6" />
+            <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} width={40} />
+            <Tooltip
+              formatter={(value, name) => [`₹${Number(value).toLocaleString('en-IN')}`, name === 'revenue' ? 'Revenue' : 'Profit']}
+              labelFormatter={(label) => `Day ${label}`}
+              contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+            />
+            <Bar dataKey="revenue" fill="#e5e7eb" radius={[3, 3, 0, 0]} name="revenue" />
+            {hasProfitData && <Bar dataKey="profit" fill="#111827" radius={[3, 3, 0, 0]} name="profit" />}
+          </BarChart>
+        </ResponsiveContainer>
+        {!hasProfitData && <p className="text-xs text-gray-400 text-center mt-1">Profit will appear once cost data is available</p>}
       </div>
 
       <div className="bg-white border border-gray-100 rounded-xl p-5">
