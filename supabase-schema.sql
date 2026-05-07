@@ -18,9 +18,11 @@ create table if not exists stock_items (
   item_name text not null,
   current_qty numeric not null default 0,
   last_price numeric not null default 0,
+  ean_code text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+alter table stock_items add column if not exists ean_code text;
 
 -- Ledger entries (every IN and OUT event)
 create table if not exists ledger_entries (
@@ -233,12 +235,14 @@ begin
         item_name,
         current_qty,
         last_price,
+        ean_code,
         updated_at
       ) values (
         v_item_code,
         v_item_name,
         v_qty,
         v_price,
+        nullif(btrim(coalesce(v_row->>'ean_code', '')), ''),
         now()
       )
       on conflict (item_code)
@@ -246,6 +250,7 @@ begin
         set item_name = excluded.item_name,
             current_qty = stock_items.current_qty + excluded.current_qty,
             last_price = excluded.last_price,
+            ean_code = coalesce(excluded.ean_code, stock_items.ean_code),
             updated_at = now()
       returning current_qty - v_qty, current_qty into v_previous_qty, v_new_qty;
 

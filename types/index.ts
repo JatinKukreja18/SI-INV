@@ -13,6 +13,7 @@ export interface StockItem {
   item_name: string;
   current_qty: number;
   last_price: number;
+  ean_code?: string;
   created_at: string;
   updated_at: string;
 }
