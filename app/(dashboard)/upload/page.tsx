@@ -43,7 +43,7 @@ const postedColumns: ColumnDef<PostedBatchItem, unknown>[] = [
 export default function UploadPage() {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [filename, setFilename] = useState('');
   const [step, setStep] = useState<'pick' | 'confirm' | 'done'>('pick');
   const [preview, setPreview] = useState<UploadPreviewRow[]>([]);
@@ -51,6 +51,8 @@ export default function UploadPage() {
   const [error, setError] = useState('');
   const [result, setResult] = useState<BatchOperationResult | null>(null);
   const [allowDuplicate, setAllowDuplicate] = useState(false);
+  // item_code → chosen name ('incoming' keeps file name, 'existing' keeps DB name)
+  const [nameResolutions, setNameResolutions] = useState<Record<string, 'incoming' | 'existing'>>({});
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
@@ -70,6 +72,7 @@ export default function UploadPage() {
     setError('');
     setResult(null);
     setAllowDuplicate(false);
+    setNameResolutions({});
 
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
@@ -122,9 +125,13 @@ export default function UploadPage() {
           allowDuplicate,
           items: preview.map((row) => ({
             item_code: row.item_code,
-            item_name: row.item_name,
+            item_name:
+              row.name_mismatch && nameResolutions[row.item_code] === 'existing'
+                ? row.name_mismatch
+                : row.item_name,
             qty: row.qty,
             unit_price: row.unit_price,
+            unit_cost: row.unit_cost ?? 0,
           })),
         }),
       });
@@ -147,6 +154,7 @@ export default function UploadPage() {
 
   const warnings = preview.filter((row) => row.warning);
   const hasBlockingWarnings = warnings.length > 0;
+  const nameMismatches = preview.filter((row) => row.name_mismatch);
 
   return (
     <div>
@@ -214,6 +222,52 @@ export default function UploadPage() {
                 <input type="checkbox" checked={allowDuplicate} onChange={(event) => setAllowDuplicate(event.target.checked)} />
                 Allow duplicate upload for this file/date
               </label>
+            </div>
+          )}
+
+          {nameMismatches.length > 0 && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs font-medium text-yellow-800 mb-2">
+                {nameMismatches.length} item name conflict{nameMismatches.length > 1 ? 's' : ''} — choose which name to keep
+              </p>
+              <div className="space-y-2">
+                {nameMismatches.map((row) => {
+                  const choice = nameResolutions[row.item_code] ?? 'incoming';
+                  return (
+                    <div key={row.item_code} className="text-xs bg-white border border-yellow-100 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-1.5">{row.item_code}</p>
+                      <div className="flex gap-3">
+                        <label className={`flex-1 flex items-start gap-2 cursor-pointer rounded p-2 border ${choice === 'incoming' ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'}`}>
+                          <input
+                            type="radio"
+                            name={`name-${row.item_code}`}
+                            checked={choice === 'incoming'}
+                            onChange={() => setNameResolutions((prev) => ({ ...prev, [row.item_code]: 'incoming' }))}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span>
+                            <span className="block font-medium text-gray-700">{row.item_name}</span>
+                            <span className="text-gray-400">From file</span>
+                          </span>
+                        </label>
+                        <label className={`flex-1 flex items-start gap-2 cursor-pointer rounded p-2 border ${choice === 'existing' ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'}`}>
+                          <input
+                            type="radio"
+                            name={`name-${row.item_code}`}
+                            checked={choice === 'existing'}
+                            onChange={() => setNameResolutions((prev) => ({ ...prev, [row.item_code]: 'existing' }))}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span>
+                            <span className="block font-medium text-gray-700">{row.name_mismatch}</span>
+                            <span className="text-gray-400">In stock master</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -286,6 +340,7 @@ export default function UploadPage() {
                 setFilename('');
                 setResult(null);
                 setAllowDuplicate(false);
+                setNameResolutions({});
               }}
               className="px-5 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
             >

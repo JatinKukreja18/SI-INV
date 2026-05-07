@@ -2,11 +2,11 @@
 
 import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/DataTable';
 import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
-import type { BatchItemInput, BatchOperationResult } from '@/types';
+import type { BatchItemInput, BatchOperationResult, StockItem } from '@/types';
 
 const columns: ColumnDef<BatchItemInput, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
@@ -18,11 +18,26 @@ const columns: ColumnDef<BatchItemInput, unknown>[] = [
 export default function StockInClient() {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [items, setItems] = useState<BatchItemInput[]>([]);
   const [form, setForm] = useState({ item_code: '', item_name: '', qty: '', unit_price: '' });
   const [result, setResult] = useState<BatchOperationResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [nameResolutions, setNameResolutions] = useState<Record<string, 'incoming' | 'existing'>>({});
+
+  const { data: stocks = [] } = useQuery<StockItem[]>({
+    queryKey: ['stocks'],
+    queryFn: async () => {
+      const response = await fetch('/api/stock');
+      return response.json() as Promise<StockItem[]>;
+    },
+  });
+
+  const stockMap = Object.fromEntries(stocks.map((s) => [s.item_code, s]));
+  const nameMismatches = items.filter((item) => {
+    const existing = stockMap[item.item_code];
+    return existing && existing.item_name !== item.item_name;
+  });
 
   function addManual() {
     if (!form.item_code.trim() || !form.item_name.trim() || !form.qty.trim()) {
@@ -93,10 +108,18 @@ export default function StockInClient() {
     setResult(null);
 
     try {
+      const resolvedItems = items.map((item) => {
+        const existing = stockMap[item.item_code];
+        if (existing && existing.item_name !== item.item_name && nameResolutions[item.item_code] === 'existing') {
+          return { ...item, item_name: existing.item_name };
+        }
+        return item;
+      });
+
       const response = await fetch('/api/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, items }),
+        body: JSON.stringify({ date, items: resolvedItems }),
       });
 
       const data = await parseBatchResponse(response);
@@ -104,6 +127,7 @@ export default function StockInClient() {
 
       if (data.success) {
         setItems([]);
+        setNameResolutions({});
         queryClient.invalidateQueries({ queryKey: ['stocks'] });
       }
     } catch {
@@ -177,6 +201,53 @@ export default function StockInClient() {
           </div>
 
           <DataTable data={items} columns={columns} />
+
+          {nameMismatches.length > 0 && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs font-medium text-yellow-800 mb-2">
+                {nameMismatches.length} item name conflict{nameMismatches.length > 1 ? 's' : ''} — choose which name to keep
+              </p>
+              <div className="space-y-2">
+                {nameMismatches.map((item) => {
+                  const existingName = stockMap[item.item_code]?.item_name ?? '';
+                  const choice = nameResolutions[item.item_code] ?? 'incoming';
+                  return (
+                    <div key={item.item_code} className="text-xs bg-white border border-yellow-100 rounded-lg p-2.5">
+                      <p className="text-gray-400 mb-1.5">{item.item_code}</p>
+                      <div className="flex gap-3">
+                        <label className={`flex-1 flex items-start gap-2 cursor-pointer rounded p-2 border ${choice === 'incoming' ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'}`}>
+                          <input
+                            type="radio"
+                            name={`name-${item.item_code}`}
+                            checked={choice === 'incoming'}
+                            onChange={() => setNameResolutions((prev) => ({ ...prev, [item.item_code]: 'incoming' }))}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span>
+                            <span className="block font-medium text-gray-700">{item.item_name}</span>
+                            <span className="text-gray-400">From entry</span>
+                          </span>
+                        </label>
+                        <label className={`flex-1 flex items-start gap-2 cursor-pointer rounded p-2 border ${choice === 'existing' ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'}`}>
+                          <input
+                            type="radio"
+                            name={`name-${item.item_code}`}
+                            checked={choice === 'existing'}
+                            onChange={() => setNameResolutions((prev) => ({ ...prev, [item.item_code]: 'existing' }))}
+                            className="mt-0.5 shrink-0"
+                          />
+                          <span>
+                            <span className="block font-medium text-gray-700">{existingName}</span>
+                            <span className="text-gray-400">In stock master</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 flex items-center gap-3">
             <button

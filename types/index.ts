@@ -25,6 +25,7 @@ export interface LedgerEntry {
   entry_type: 'in' | 'out';
   qty: number;
   unit_price: number;
+  unit_cost: number;
   balance_after: number;
   upload_batch_id?: string;
   created_by?: string;
@@ -47,6 +48,8 @@ export interface ExcelRow {
   item_name: string;
   qty: number;
   unit_price: number;
+  unit_cost?: number;
+  ean_code?: string;
 }
 
 export type BatchItemInput = ExcelRow;
@@ -55,6 +58,7 @@ export interface UploadPreviewRow extends ExcelRow {
   current_stock: number;
   stock_after: number;
   warning?: string;
+  name_mismatch?: string; // existing DB name when it differs from incoming item_name
 }
 
 export interface BatchShortage {

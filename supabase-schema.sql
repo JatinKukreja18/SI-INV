@@ -59,6 +59,8 @@ alter table upload_batches
   add constraint upload_batches_batch_type_check
   check (batch_type in ('stock_in', 'edit_out'));
 
+alter table ledger_entries add column if not exists unit_cost numeric not null default 0;
+
 -- Indexes
 create index if not exists idx_ledger_date on ledger_entries(entry_date);
 create index if not exists idx_ledger_code on ledger_entries(item_code);
@@ -92,6 +94,7 @@ declare
   v_item_name text;
   v_qty numeric;
   v_price numeric;
+  v_cost numeric;
 begin
   if p_batch_type not in ('stock_in', 'edit_out') then
     raise exception 'Unsupported batch type: %', p_batch_type;
@@ -222,6 +225,7 @@ begin
     v_item_name := btrim(coalesce(v_row->>'item_name', ''));
     v_qty := coalesce((v_row->>'qty')::numeric, 0);
     v_price := coalesce((v_row->>'unit_price')::numeric, 0);
+    v_cost := coalesce((v_row->>'unit_cost')::numeric, 0);
 
     if p_batch_type = 'stock_in' then
       insert into stock_items (
@@ -252,6 +256,7 @@ begin
         entry_type,
         qty,
         unit_price,
+        unit_cost,
         balance_after,
         upload_batch_id,
         created_by
@@ -262,6 +267,7 @@ begin
         'in',
         v_qty,
         v_price,
+        v_cost,
         v_new_qty,
         v_batch_id,
         p_created_by
@@ -282,6 +288,7 @@ begin
         entry_type,
         qty,
         unit_price,
+        unit_cost,
         balance_after,
         upload_batch_id,
         created_by
@@ -292,6 +299,7 @@ begin
         'out',
         v_qty,
         v_price,
+        v_cost,
         v_new_qty,
         v_batch_id,
         p_created_by

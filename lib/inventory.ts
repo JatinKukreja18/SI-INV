@@ -9,6 +9,8 @@ export const batchItemSchema = z.object({
   item_name: z.string().trim().min(1),
   qty: z.number().positive(),
   unit_price: z.number().min(0),
+  unit_cost: z.number().min(0).optional().default(0),
+  ean_code: z.string().optional(),
 });
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -114,18 +116,23 @@ export function buildUploadPreview(items: BatchItemInput[], stocks: StockItem[])
   const stockMap = Object.fromEntries(stocks.map((stock) => [stock.item_code, stock]));
 
   return items.map((item) => {
-    const currentStock = stockMap[item.item_code]?.current_qty ?? 0;
-    const warning = !stockMap[item.item_code]
+    const stockEntry = stockMap[item.item_code];
+    const currentStock = stockEntry?.current_qty ?? 0;
+    const warning = !stockEntry
       ? 'Not in stock master'
       : currentStock < item.qty
         ? `Only ${currentStock} in stock`
         : undefined;
+
+    const existingName = stockEntry?.item_name;
+    const name_mismatch = existingName && existingName !== item.item_name ? existingName : undefined;
 
     return {
       ...item,
       current_stock: currentStock,
       stock_after: Math.max(0, currentStock - item.qty),
       warning,
+      name_mismatch,
     };
   });
 }

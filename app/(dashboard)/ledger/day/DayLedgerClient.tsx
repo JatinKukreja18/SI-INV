@@ -31,11 +31,29 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
     },
   },
   { accessorKey: 'unit_price', header: 'Price', cell: ({ getValue }) => `₹${(getValue() as number).toFixed(2)}` },
+  {
+    accessorKey: 'unit_cost',
+    header: 'Cost',
+    cell: ({ row, getValue }) => {
+      const cost = getValue() as number
+      return row.original.entry_type === 'out' && cost > 0 ? `₹${cost.toFixed(2)}` : <span className="text-gray-300">—</span>
+    },
+  },
+  {
+    id: 'margin',
+    header: 'Margin',
+    cell: ({ row }) => {
+      if (row.original.entry_type !== 'out' || !row.original.unit_cost) return <span className="text-gray-300">—</span>
+      const margin = (row.original.unit_price - row.original.unit_cost) * row.original.qty
+      return <span className={margin >= 0 ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>₹{margin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+    },
+  },
   { accessorKey: 'balance_after', header: 'Balance After', cell: ({ getValue }) => <span className="font-medium">{(getValue() as number).toLocaleString('en-IN')}</span> },
 ]
 
 export default function DayLedgerClient() {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(new Date().toLocaleDateString('en-CA'))
+
 
   const { data: entries = [], isLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['ledger', 'day', date],
@@ -48,7 +66,10 @@ export default function DayLedgerClient() {
 
   const inItems = entries.filter(entry => entry.entry_type === 'in')
   const outItems = entries.filter(entry => entry.entry_type === 'out')
-  const outValue = outItems.reduce((sum, entry) => sum + entry.qty * entry.unit_price, 0)
+  const revenue = outItems.reduce((sum, entry) => sum + entry.qty * entry.unit_price, 0)
+  const cost = outItems.reduce((sum, entry) => sum + entry.qty * entry.unit_cost, 0)
+  const profit = revenue - cost
+  const hasCostData = outItems.some(entry => entry.unit_cost > 0)
 
   return (
     <div>
@@ -66,11 +87,7 @@ export default function DayLedgerClient() {
         </div>
 
         {entries.length > 0 && (
-          <div className="grid grid-cols-4 gap-3 mb-5">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Total Transactions</p>
-              <p className="text-xl font-medium">{entries.length}</p>
-            </div>
+          <div className="grid grid-cols-3 gap-3 mb-5">
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Stock In (units)</p>
               <p className="text-xl font-medium text-green-600">{inItems.reduce((sum, entry) => sum + entry.qty, 0).toLocaleString('en-IN')}</p>
@@ -80,8 +97,25 @@ export default function DayLedgerClient() {
               <p className="text-xl font-medium text-red-600">{outItems.reduce((sum, entry) => sum + entry.qty, 0).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-400 mb-1">Edit-Out Value</p>
-              <p className="text-xl font-medium">₹{outValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+              <p className="text-xs text-gray-400 mb-1">Revenue</p>
+              <p className="text-xl font-medium">₹{revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1">Cost</p>
+              {hasCostData
+                ? <p className="text-xl font-medium text-gray-600">₹{cost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                : <p className="text-sm text-gray-400 mt-1">No cost data</p>}
+            </div>
+            <div className={`rounded-lg p-3 col-span-2 ${hasCostData ? (profit >= 0 ? 'bg-green-50' : 'bg-red-50') : 'bg-gray-50'}`}>
+              <p className="text-xs text-gray-400 mb-1">Gross Profit</p>
+              {hasCostData
+                ? <p className={`text-xl font-medium ${profit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    ₹{profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    <span className="text-sm font-normal ml-2 opacity-70">
+                      ({revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0}% margin)
+                    </span>
+                  </p>
+                : <p className="text-sm text-gray-400 mt-1">Upload a file after migration to see profit</p>}
             </div>
           </div>
         )}
