@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { mergeBatchItems, normalizeSheetRows, parseBatchResponse, findHeaderRow } from '@/lib/inventory';
@@ -144,7 +145,12 @@ export default function StockInClient() {
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-gray-900 mb-5">Stock In</h1>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-lg font-medium text-gray-900">Stock In</h1>
+        <Link href="/stock-in/history" className="text-xs text-gray-400 hover:text-gray-600">
+          View history →
+        </Link>
+      </div>
 
       <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
         <div className="flex items-end gap-4 mb-4">

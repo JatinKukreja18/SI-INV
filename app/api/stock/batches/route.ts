@@ -1,0 +1,19 @@
+import { NextResponse } from 'next/server'
+import { getServerAuthSession } from '@/lib/server-auth'
+import { supabaseAdmin } from '@/lib/supabase'
+
+export async function GET() {
+  const session = await getServerAuthSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data, error } = await supabaseAdmin
+    .from('upload_batches')
+    .select('*, users(name, email)')
+    .eq('batch_type', 'stock_in')
+    .order('upload_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
