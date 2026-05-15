@@ -15,9 +15,10 @@ interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[]
   searchPlaceholder?: string
   searchKey?: string
+  stickyHeader?: boolean
 }
 
-export function DataTable<T>({ data, columns, searchPlaceholder = 'Search...', searchKey }: DataTableProps<T>) {
+export function DataTable<T>({ data, columns, searchPlaceholder = 'Search...', searchKey, stickyHeader }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -44,9 +45,9 @@ export function DataTable<T>({ data, columns, searchPlaceholder = 'Search...', s
           />
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border border-gray-100">
+      <div className={`rounded-lg border border-gray-100 ${stickyHeader ? 'overflow-auto max-h-[60vh]' : 'overflow-x-auto'}`}>
         <table className="w-full text-sm">
-          <thead>
+          <thead className={stickyHeader ? 'sticky top-0 z-10' : ''}>
             {table.getHeaderGroups().map(hg => (
               <tr key={hg.id} className="border-b border-gray-100 bg-gray-50">
                 {hg.headers.map(header => (

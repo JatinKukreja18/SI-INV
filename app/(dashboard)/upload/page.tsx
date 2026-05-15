@@ -82,10 +82,11 @@ export default function UploadPage() {
 
       const rawRows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: '' }) as string[][];
       const headerRowIndex = findHeaderRow(rawRows);
+      const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] ?? 'A1');
 
       const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, {
         defval: '',
-        range: headerRowIndex,
+        range: sheetRange.s.r + headerRowIndex,
       });
 
       const parsedRows = normalizeSheetRows(rows);
