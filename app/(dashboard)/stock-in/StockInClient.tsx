@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
 import type { BatchItemInput, BatchOperationResult, StockItem } from '@/types';
 import { toast } from 'sonner';
+import { AddItemDialog } from '@/components/ui/AddItemDialog';
+import type { AddItemFormValues } from '@/components/ui/AddItemDialog';
 
 export default function StockInClient() {
   const queryClient = useQueryClient();
@@ -17,6 +19,8 @@ export default function StockInClient() {
   const [nameResolutions, setNameResolutions] = useState<Record<string, 'incoming' | 'existing'>>({});
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDefaults, setDialogDefaults] = useState<Partial<AddItemFormValues>>({});
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
@@ -57,15 +61,25 @@ export default function StockInClient() {
     setOpen(false);
   }
 
-  function addNewItem() {
-    const code = search.trim();
-    if (!code) return;
-    const alreadyIn = items.find(i => i.item_code === code);
-    if (!alreadyIn) {
-      setItems(prev => [...prev, { item_code: code, item_name: '', qty: 1, unit_price: 0 }]);
-    }
-    setSearch('');
+  function openAddNewDialog() {
+    const term = search.trim();
+    const isEan = /^\d{8,14}$/.test(term);
+    setDialogDefaults(isEan ? { ean_code: term } : { item_code: term });
     setOpen(false);
+    setDialogOpen(true);
+  }
+
+  function handleDialogConfirm(values: AddItemFormValues) {
+    const next: BatchItemInput = {
+      item_code: values.item_code,
+      item_name: values.item_name,
+      qty: values.qty,
+      unit_price: values.unit_price,
+      ean_code: values.ean_code || undefined,
+    };
+    setItems(prev => mergeBatchItems(prev, next));
+    setSearch('');
+    setDialogOpen(false);
   }
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
@@ -172,7 +186,7 @@ export default function StockInClient() {
                 ))}
                 {showAddNew && (
                   <button
-                    onMouseDown={addNewItem}
+                    onMouseDown={openAddNewDialog}
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50 text-sm text-blue-600"
                   >
                     + Add "{search.trim()}" as new item
@@ -289,6 +303,14 @@ export default function StockInClient() {
           <p className="text-sm text-red-700">{result.errors[0] ?? 'Please review and try again.'}</p>
         </div>
       )}
+
+      <AddItemDialog
+        open={dialogOpen}
+        defaultValues={dialogDefaults}
+        showStockFields
+        onClose={() => setDialogOpen(false)}
+        onConfirm={handleDialogConfirm}
+      />
     </div>
   );
 }

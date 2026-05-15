@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable'
 import type { LedgerEntry, StockItem } from '@/types'
+import { AddItemDialog } from '@/components/ui/AddItemDialog'
+import type { AddItemFormValues } from '@/components/ui/AddItemDialog'
+import { toast } from 'sonner'
 
 const columns: ColumnDef<LedgerEntry, unknown>[] = [
   { accessorKey: 'entry_date', header: 'Date' },
@@ -34,9 +37,29 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
 ]
 
 export default function ItemMasterClient() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState('')
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+
+  async function handleAddItem(values: AddItemFormValues) {
+    const res = await fetch('/api/stock/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_code: values.item_code, item_name: values.item_name, ean_code: values.ean_code || undefined }),
+    })
+    if (res.ok) {
+      toast.success(`${values.item_name} added to Item Master`)
+      setAddDialogOpen(false)
+      await queryClient.invalidateQueries({ queryKey: ['stocks'] })
+      setSelectedCode(values.item_code)
+      setSearch(values.item_name)
+    } else {
+      const data = await res.json() as { error?: string }
+      toast.error(data.error ?? 'Failed to add item')
+    }
+  }
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
@@ -78,7 +101,15 @@ export default function ItemMasterClient() {
 
   return (
     <div>
-      <h1 className="text-lg font-medium text-gray-900 mb-5">Item Master</h1>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-lg font-medium text-gray-900">Item Master</h1>
+        <button
+          onClick={() => setAddDialogOpen(true)}
+          className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
+        >
+          + Add Item
+        </button>
+      </div>
 
       <div className="bg-white border border-gray-100 rounded-xl p-5 mb-4">
         <div className="relative">
@@ -164,6 +195,13 @@ export default function ItemMasterClient() {
           <p className="text-sm text-gray-400 py-8 text-center">Search for an item to view its details and ledger</p>
         </div>
       )}
+
+      <AddItemDialog
+        open={addDialogOpen}
+        showStockFields={false}
+        onClose={() => setAddDialogOpen(false)}
+        onConfirm={handleAddItem}
+      />
     </div>
   )
 }

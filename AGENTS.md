@@ -1,5 +1,2 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+# Next.js version note
+This project uses **Next.js 16.2.4** — APIs and conventions may differ from training data. Check `node_modules/next/dist/docs/` if uncertain. Build uses `--webpack` flag.
