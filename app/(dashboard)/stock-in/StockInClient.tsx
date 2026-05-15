@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { mergeBatchItems, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
+import { mergeBatchItems, normalizeSheetRows, parseBatchResponse, findHeaderRow } from '@/lib/inventory';
 import type { BatchItemInput, BatchOperationResult, StockItem } from '@/types';
 import { toast } from 'sonner';
 import { AddItemDialog } from '@/components/ui/AddItemDialog';
@@ -64,7 +64,9 @@ export default function StockInClient() {
   function openAddNewDialog() {
     const term = search.trim();
     const isEan = /^\d{8,14}$/.test(term);
-    setDialogDefaults(isEan ? { ean_code: term } : { item_code: term });
+    const isNumeric = /^\d+$/.test(term);
+    const defaults = isEan ? { ean_code: term } : isNumeric ? { item_code: term } : { item_name: term };
+    setDialogDefaults(defaults);
     setOpen(false);
     setDialogOpen(true);
   }
@@ -91,13 +93,9 @@ export default function StockInClient() {
       const workbook = XLSX.read(loadEvent.target?.result, { type: 'binary', cellDates: true });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const rawRows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: '' }) as string[][];
-      const KEYWORDS = ['item code', 'item name', 'qty', 'quantity', 'name', 'price'];
-      let headerRowIndex = 0;
-      for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
-        const rowText = rawRows[i].join(' ').toLowerCase();
-        if (KEYWORDS.filter((k) => rowText.includes(k)).length >= 2) { headerRowIndex = i; break; }
-      }
-      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, { defval: '', range: headerRowIndex });
+      const headerRowIndex = findHeaderRow(rawRows);
+      const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] ?? 'A1');
+      const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, { defval: '', range: sheetRange.s.r + headerRowIndex });
       const parsedItems = normalizeSheetRows(rows);
       setItems(prev => {
         let merged = prev;

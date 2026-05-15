@@ -5,7 +5,7 @@ import * as XLSX from 'xlsx';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/DataTable';
-import { buildUploadPreview, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
+import { buildUploadPreview, findHeaderRow, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
 import type { BatchOperationResult, PostedBatchItem, StockItem, UploadPreviewRow } from '@/types';
 import { toast } from 'sonner';
 
@@ -80,17 +80,8 @@ export default function UploadPage() {
       const workbook = XLSX.read(loadEvent.target?.result, { type: 'binary', cellDates: true });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-      // Find the header row — your supplier file has metadata in rows 1-8
       const rawRows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, defval: '' }) as string[][];
-      const KEYWORDS = ['item code', 'item name', 'qty', 'quantity', 'name', 'price'];
-      let headerRowIndex = 0;
-      for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
-        const rowText = rawRows[i].join(' ').toLowerCase();
-        if (KEYWORDS.filter((k) => rowText.includes(k)).length >= 2) {
-          headerRowIndex = i;
-          break;
-        }
-      }
+      const headerRowIndex = findHeaderRow(rawRows);
 
       const rows = XLSX.utils.sheet_to_json<Record<string, string | number | boolean | null>>(worksheet, {
         defval: '',

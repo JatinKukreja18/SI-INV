@@ -32,6 +32,34 @@ function normalizeHeader(h: string): string {
     .replace(/[\s_.()]/g, '');
 }
 
+export function findHeaderRow(rawRows: string[][]): number {
+  const knownHeaders = new Set([
+    'Item Code', 'item_code', 'Code', 'ITEM CODE',
+    'Name', 'Item Name', 'item_name', 'ITEM NAME',
+    'Quantity', 'Qty', 'qty', 'QTY',
+    'Price', 'Unit Price', 'unit_price', 'Rate', 'MRP',
+    'EAN CODE', 'EAN', 'ean_code', 'Barcode',
+    'NET COST (WITH TAX)', 'Net Cost', 'unit_cost', 'Cost',
+    'NET SALES (WITH TAX)', 'Net Sales', 'Amount', 'Total',
+  ].map(normalizeHeader));
+
+  let bestRow = 0;
+  let bestScore = 0;
+
+  for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
+    const score = rawRows[i].filter(cell =>
+      knownHeaders.has(normalizeHeader(String(cell)))
+    ).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestRow = i;
+    }
+    if (score >= 3) break;
+  }
+
+  return bestScore >= 2 ? bestRow : 0;
+}
+
 function getStringCellFuzzy(row: SpreadsheetRow, aliases: string[]): string {
   const normalizedAliases = aliases.map(normalizeHeader);
   for (const key of Object.keys(row)) {

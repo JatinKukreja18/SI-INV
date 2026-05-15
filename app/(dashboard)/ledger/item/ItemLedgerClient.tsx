@@ -42,6 +42,7 @@ export default function ItemMasterClient() {
   const [open, setOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState('')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [dialogDefaults, setDialogDefaults] = useState<Partial<AddItemFormValues>>({})
 
   async function handleAddItem(values: AddItemFormValues) {
     const res = await fetch('/api/stock/items', {
@@ -87,10 +88,26 @@ export default function ItemMasterClient() {
     s.item_name.toLowerCase().includes(query)
   ).slice(0, 8)
 
+  const exactMatch = stocks.find(s =>
+    s.item_code.toLowerCase() === query ||
+    (s.ean_code ?? '').toLowerCase() === query
+  )
+  const showAddNew = query.length > 0 && !exactMatch
+
   function selectStock(stock: StockItem) {
     setSelectedCode(stock.item_code)
     setSearch(stock.item_name)
     setOpen(false)
+  }
+
+  function openAddNewDialog() {
+    const term = search.trim()
+    const isEan = /^\d{8,14}$/.test(term)
+    const isNumeric = /^\d+$/.test(term)
+    const defaults = isEan ? { ean_code: term } : isNumeric ? { item_code: term } : { item_name: term }
+    setDialogDefaults(defaults)
+    setOpen(false)
+    setAddDialogOpen(true)
   }
 
   const stockStatus = selected
@@ -104,7 +121,7 @@ export default function ItemMasterClient() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-medium text-gray-900">Item Master</h1>
         <button
-          onClick={() => setAddDialogOpen(true)}
+          onClick={() => { setDialogDefaults({}); setAddDialogOpen(true) }}
           className="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800"
         >
           + Add Item
@@ -126,7 +143,7 @@ export default function ItemMasterClient() {
             placeholder="Type item code, EAN or name…"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400"
           />
-          {open && filtered.length > 0 && (
+          {open && (filtered.length > 0 || showAddNew) && (
             <div className="absolute z-20 top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
               {filtered.map(stock => (
                 <button
@@ -140,6 +157,14 @@ export default function ItemMasterClient() {
                   <span className="float-right text-xs text-gray-400">Stock: {stock.current_qty}</span>
                 </button>
               ))}
+              {showAddNew && (
+                <button
+                  onMouseDown={openAddNewDialog}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-50 text-sm text-blue-600"
+                >
+                  + Add &ldquo;{search.trim()}&rdquo; as new item
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -198,6 +223,7 @@ export default function ItemMasterClient() {
 
       <AddItemDialog
         open={addDialogOpen}
+        defaultValues={dialogDefaults}
         showStockFields={false}
         onClose={() => setAddDialogOpen(false)}
         onConfirm={handleAddItem}
