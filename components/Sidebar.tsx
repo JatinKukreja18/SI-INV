@@ -13,7 +13,10 @@ const adminNav = [
 
 const staffNav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
+  { href: '/stock-in', label: 'Stock In', icon: '↓' },
   { href: '/upload', label: 'Upload Sales', icon: '↑' },
+  { href: '/ledger/item', label: 'Item Master', icon: '≡' },
+  { href: '/ledger/day', label: 'Day Ledger', icon: '⊞' },
 ];
 type SidebarProps = { role: string; userName: string };
 

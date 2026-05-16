@@ -1,7 +1,5 @@
-import DayLedgerClient from './DayLedgerClient'
-import { requireAdminPage } from '@/lib/server-auth'
+import DayLedgerClient from './DayLedgerClient';
 
 export default async function DayLedgerPage() {
-  await requireAdminPage()
-  return <DayLedgerClient />
+  return <DayLedgerClient />;
 }

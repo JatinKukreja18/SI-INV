@@ -9,10 +9,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type')
   const code = searchParams.get('code')

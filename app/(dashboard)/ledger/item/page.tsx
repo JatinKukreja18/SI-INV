@@ -1,8 +1,6 @@
-import ItemLedgerClient from './ItemLedgerClient'
-import { requireAdminPage } from '@/lib/server-auth'
+import ItemLedgerClient from './ItemLedgerClient';
 
 export default async function ItemLedgerPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
-  await requireAdminPage()
-  const { code } = await searchParams
-  return <ItemLedgerClient initialCode={code} />
+  const { code } = await searchParams;
+  return <ItemLedgerClient initialCode={code} />;
 }

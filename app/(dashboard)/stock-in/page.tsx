@@ -1,7 +1,7 @@
 import StockInClient from './StockInClient'
-import { requireAdminPage } from '@/lib/server-auth'
+import { requireSession } from '@/lib/server-auth'
 
 export default async function StockInPage() {
-  await requireAdminPage()
+  await requireSession()
   return <StockInClient />
 }
