@@ -3,6 +3,35 @@ import { z } from 'zod'
 import { getServerAuthSession } from '@/lib/server-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+export async function DELETE(req: NextRequest) {
+  const session = await getServerAuthSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const code = new URL(req.url).searchParams.get('code')
+  if (!code) return NextResponse.json({ error: 'Item code required' }, { status: 400 })
+
+  const { count, error: countError } = await supabaseAdmin
+    .from('ledger_entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('item_code', code)
+
+  if (countError) return NextResponse.json({ error: countError.message }, { status: 500 })
+
+  if ((count ?? 0) > 0) {
+    return NextResponse.json({ error: 'Item has transaction history and cannot be deleted' }, { status: 409 })
+  }
+
+  const { error } = await supabaseAdmin
+    .from('stock_items')
+    .delete()
+    .eq('item_code', code)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
+}
+
 const createItemSchema = z.object({
   item_code: z.string().trim().min(1),
   item_name: z.string().trim().min(1),

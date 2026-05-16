@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable'
@@ -44,7 +45,9 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
 
 export default function ItemMasterClient({ initialCode }: { initialCode?: string }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const queryClient = useQueryClient()
+  const isAdmin = session?.user?.role === 'admin'
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState(initialCode ?? '')
@@ -107,6 +110,19 @@ export default function ItemMasterClient({ initialCode }: { initialCode?: string
     (s.ean_code ?? '').toLowerCase() === query
   )
   const showAddNew = query.length > 0 && !exactMatch
+
+  async function handleDelete() {
+    if (!selected) return
+    if (!confirm(`Delete "${selected.item_name}"? This cannot be undone.`)) return
+    const res = await fetch(`/api/stock/items?code=${encodeURIComponent(selected.item_code)}`, { method: 'DELETE' })
+    const data = await res.json() as { error?: string }
+    if (!res.ok) { toast.error(data.error ?? 'Failed to delete item'); return }
+    toast.success(`${selected.item_name} deleted`)
+    setSelectedCode('')
+    setSearch('')
+    router.replace('/ledger/item', { scroll: false })
+    queryClient.invalidateQueries({ queryKey: ['stocks'] })
+  }
 
   function selectStock(stock: StockItem) {
     setSelectedCode(stock.item_code)
@@ -200,9 +216,19 @@ export default function ItemMasterClient({ initialCode }: { initialCode?: string
                 <h2 className="text-base font-medium text-gray-900">{selected.item_name}</h2>
                 <p className="text-xs text-gray-400 mt-0.5">{selected.item_code}{selected.ean_code ? ` · EAN: ${selected.ean_code}` : ''}</p>
               </div>
-              {stockStatus && (
-                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${stockStatus.cls}`}>{stockStatus.label}</span>
-              )}
+              <div className="flex items-center gap-2">
+                {stockStatus && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${stockStatus.cls}`}>{stockStatus.label}</span>
+                )}
+                {isAdmin && entries.length === 0 && !isLoading && (
+                  <button
+                    onClick={handleDelete}
+                    className="text-xs px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-600 hover:bg-red-100"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-4 gap-3">
