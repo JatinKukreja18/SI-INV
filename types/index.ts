@@ -7,10 +7,16 @@ export interface User {
   role: Role;
 }
 
-export interface StockItem {
-  id: string;
+interface ItemIdentity {
   item_code: string;
   item_name: string;
+}
+interface BaseItem extends ItemIdentity {
+  id: string;
+}
+export type EntryType = 'in' | 'out';
+export type BatchType = 'stock_in' | 'edit_out';
+export interface StockItem extends BaseItem {
   current_qty: number;
   last_price: number;
   ean_code?: string;
@@ -18,12 +24,9 @@ export interface StockItem {
   updated_at: string;
 }
 
-export interface LedgerEntry {
-  id: string;
+export interface LedgerEntry extends BaseItem {
   entry_date: string;
-  item_code: string;
-  item_name: string;
-  entry_type: 'in' | 'out';
+  entry_type: EntryType;
   qty: number;
   unit_price: number;
   unit_cost: number;
@@ -36,7 +39,7 @@ export interface LedgerEntry {
 export interface UploadBatch {
   id: string;
   upload_date: string;
-  batch_type: 'stock_in' | 'edit_out';
+  batch_type: BatchType;
   filename?: string;
   total_items: number;
   uploaded_by?: string;
@@ -44,9 +47,7 @@ export interface UploadBatch {
   created_at: string;
 }
 
-export interface ExcelRow {
-  item_code: string;
-  item_name: string;
+export interface ExcelRow extends ItemIdentity {
   qty: number;
   unit_price: number;
   unit_cost?: number;
@@ -62,9 +63,7 @@ export interface UploadPreviewRow extends ExcelRow {
   name_mismatch?: string; // existing DB name when it differs from incoming item_name
 }
 
-export interface BatchShortage {
-  item_code: string;
-  item_name: string;
+export interface BatchShortage extends ItemIdentity {
   requested_qty: number;
   available_qty: number;
   reason: string;
@@ -73,7 +72,7 @@ export interface BatchShortage {
 export interface PostedBatchItem extends ExcelRow {
   previous_qty: number;
   new_qty: number;
-  entry_type: 'in' | 'out';
+  entry_type: EntryType;
 }
 
 export interface DuplicateBatchInfo {
