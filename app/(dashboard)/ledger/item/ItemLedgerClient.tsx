@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable'
@@ -8,9 +9,14 @@ import type { LedgerEntry, StockItem } from '@/types'
 import { AddItemDialog } from '@/components/ui/AddItemDialog'
 import type { AddItemFormValues } from '@/components/ui/AddItemDialog'
 import { toast } from 'sonner'
+import { formatDate } from '@/lib/format'
 
 const columns: ColumnDef<LedgerEntry, unknown>[] = [
-  { accessorKey: 'entry_date', header: 'Date' },
+  {
+    accessorKey: 'entry_date',
+    header: 'Date',
+    cell: ({ getValue }) => formatDate(getValue() as string),
+  },
   {
     accessorKey: 'entry_type',
     header: 'Type',
@@ -36,11 +42,12 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
   { accessorKey: 'balance_after', header: 'Balance', cell: ({ getValue }) => <span className="font-medium">{(getValue() as number).toLocaleString('en-IN')}</span> },
 ]
 
-export default function ItemMasterClient() {
+export default function ItemMasterClient({ initialCode }: { initialCode?: string }) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
-  const [selectedCode, setSelectedCode] = useState('')
+  const [selectedCode, setSelectedCode] = useState(initialCode ?? '')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [dialogDefaults, setDialogDefaults] = useState<Partial<AddItemFormValues>>({})
 
@@ -70,6 +77,13 @@ export default function ItemMasterClient() {
     },
   })
 
+  useEffect(() => {
+    if (initialCode && stocks.length > 0 && !search) {
+      const found = stocks.find(s => s.item_code === initialCode)
+      if (found) setSearch(found.item_name)
+    }
+  }, [stocks.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const { data: entries = [], isLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['ledger', 'item', selectedCode],
     queryFn: async () => {
@@ -98,6 +112,7 @@ export default function ItemMasterClient() {
     setSelectedCode(stock.item_code)
     setSearch(stock.item_name)
     setOpen(false)
+    router.replace(`/ledger/item?code=${stock.item_code}`, { scroll: false })
   }
 
   function openAddNewDialog() {
@@ -133,7 +148,14 @@ export default function ItemMasterClient() {
           <label className="block text-xs text-gray-500 mb-1">Search by item code, EAN or name</label>
           <input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setOpen(true); if (!e.target.value.trim()) setSelectedCode('') }}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setOpen(true)
+              if (!e.target.value.trim()) {
+                setSelectedCode('')
+                router.replace('/ledger/item', { scroll: false })
+              }
+            }}
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             onKeyDown={(e) => {

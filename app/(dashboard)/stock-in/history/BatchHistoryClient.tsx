@@ -4,14 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import type { UploadBatch } from '@/types';
+import { formatDate } from '@/lib/format';
 
 type BatchWithUser = UploadBatch & {
   users: { name: string; email: string } | null;
 };
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 function formatTime(isoStr: string) {
   return new Date(isoStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });

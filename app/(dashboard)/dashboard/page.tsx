@@ -1,20 +1,29 @@
-'use client'
-import { useQuery } from '@tanstack/react-query'
-import { DataTable } from '@/components/ui/DataTable'
-import type { StockItem } from '@/types'
-import { ColumnDef } from '@tanstack/react-table'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+'use client';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { DataTable } from '@/components/ui/DataTable';
+import type { StockItem } from '@/types';
+import { ColumnDef } from '@tanstack/react-table';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const columns: ColumnDef<StockItem, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
-  { accessorKey: 'item_name', header: 'Item Name' },
+  {
+    accessorKey: 'item_name',
+    header: 'Item Name',
+    cell: ({ getValue, row }) => (
+      <Link href={`/ledger/item?code=${row.original.item_code}`} className="text-blue-500 hover:font-semibold">
+        {getValue() as string}
+      </Link>
+    ),
+  },
   {
     accessorKey: 'current_qty',
     header: 'Current Stock',
     cell: ({ getValue }) => {
-      const v = getValue() as number
-      const color = v <= 0 ? 'text-red-600 font-medium' : v <= 5 ? 'text-amber-600 font-medium' : 'text-gray-900'
-      return <span className={color}>{v.toLocaleString('en-IN')}</span>
+      const v = getValue() as number;
+      const color = v <= 0 ? 'text-red-600 font-medium' : v <= 5 ? 'text-amber-600 font-medium' : 'text-gray-900';
+      return <span className={color}>{v.toLocaleString('en-IN')}</span>;
     },
   },
   {
@@ -26,39 +35,39 @@ const columns: ColumnDef<StockItem, unknown>[] = [
     id: 'status',
     header: 'Status',
     cell: ({ row }) => {
-      const qty = row.original.current_qty
-      if (qty <= 0) return <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">Out</span>
-      if (qty <= 5) return <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Low</span>
-      return <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">OK</span>
+      const qty = row.original.current_qty;
+      if (qty <= 0) return <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">Out</span>;
+      if (qty <= 5) return <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">Low</span>;
+      return <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">OK</span>;
     },
   },
-]
+];
 
 export default function DashboardPage() {
   const { data: stocks = [], isLoading } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
     queryFn: async () => {
-      const response = await fetch('/api/stock')
-      return response.json() as Promise<StockItem[]>
+      const response = await fetch('/api/stock');
+      return response.json() as Promise<StockItem[]>;
     },
-  })
+  });
 
-  const total = stocks.length
-  const low = stocks.filter(s => s.current_qty > 0 && s.current_qty <= 5).length
-  const out = stocks.filter(s => s.current_qty <= 0).length
-  const totalValue = stocks.reduce((sum, s) => sum + s.current_qty * s.last_price, 0)
+  const total = stocks.length;
+  const low = stocks.filter((s) => s.current_qty > 0 && s.current_qty <= 5).length;
+  const out = stocks.filter((s) => s.current_qty <= 0).length;
+  const totalValue = stocks.reduce((sum, s) => sum + s.current_qty * s.last_price, 0);
 
-  type SalesDay = { date: string; day: string; revenue: number; profit: number }
+  type SalesDay = { date: string; day: string; revenue: number; profit: number };
   const { data: salesData = [] } = useQuery<SalesDay[]>({
     queryKey: ['sales', 'monthly'],
     queryFn: async () => {
-      const response = await fetch('/api/sales/monthly')
-      return response.json() as Promise<SalesDay[]>
+      const response = await fetch('/api/sales/monthly');
+      return response.json() as Promise<SalesDay[]>;
     },
-  })
-  const monthRevenue = salesData.reduce((s, d) => s + d.revenue, 0)
-  const monthName = new Date().toLocaleString('en-IN', { month: 'long' })
-  const hasProfitData = salesData.some(d => d.profit > 0)
+  });
+  const monthRevenue = salesData.reduce((s, d) => s + d.revenue, 0);
+  const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
+  const hasProfitData = salesData.some((d) => d.profit > 0);
 
   return (
     <div>
@@ -70,12 +79,10 @@ export default function DashboardPage() {
           { label: 'Stock Value', value: `₹${totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` },
           { label: 'Low Stock', value: low.toString(), warn: true },
           { label: 'Out of Stock', value: out.toString(), danger: true },
-        ].map(m => (
+        ].map((m) => (
           <div key={m.label} className="bg-white border border-gray-100 rounded-xl p-4">
             <p className="text-xs text-gray-400 mb-1">{m.label}</p>
-            <p className={`text-2xl font-medium ${m.danger ? 'text-red-600' : m.warn ? 'text-amber-600' : 'text-gray-900'}`}>
-              {m.value}
-            </p>
+            <p className={`text-2xl font-medium ${m.danger ? 'text-red-600' : m.warn ? 'text-amber-600' : 'text-gray-900'}`}>{m.value}</p>
           </div>
         ))}
       </div>
@@ -89,7 +96,13 @@ export default function DashboardPage() {
           <BarChart data={salesData} barGap={2}>
             <CartesianGrid vertical={false} stroke="#f3f4f6" />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} width={40} />
+            <YAxis
+              tick={{ fontSize: 11, fill: '#9ca3af' }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+              width={40}
+            />
             <Tooltip
               formatter={(value, name) => [`₹${Number(value).toLocaleString('en-IN')}`, name === 'revenue' ? 'Revenue' : 'Profit']}
               labelFormatter={(label) => `Day ${label}`}
@@ -111,5 +124,5 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
-  )
+  );
 }

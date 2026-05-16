@@ -5,16 +5,13 @@ import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { LedgerEntry, UploadBatch, Role } from '@/types';
+import { formatDate } from '@/lib/format';
 
 type BatchWithUser = UploadBatch & {
   users: { name: string; email: string } | null;
 };
 
 type EditableEntry = LedgerEntry & { _dirty?: boolean };
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 export default function BatchDetailClient({ batchId, role }: { batchId: string; role: Role }) {
   const queryClient = useQueryClient();
