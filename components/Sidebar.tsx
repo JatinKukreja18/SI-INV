@@ -56,6 +56,15 @@ export function Sidebar({ role, userName }: SidebarProps) {
       </nav>
 
       <div className="px-2 py-3 border-t border-gray-100">
+        <Link
+          href="/settings"
+          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm mb-0.5 transition-colors ${
+            pathname === '/settings' ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+          }`}
+        >
+          <span className="text-xs w-4 text-center">⚙</span>
+          Settings
+        </Link>
         <button
           onClick={() => signOut({ callbackUrl: '/login' })}
           className="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
