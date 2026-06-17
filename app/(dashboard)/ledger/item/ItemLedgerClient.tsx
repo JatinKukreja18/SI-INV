@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable'
-import type { LedgerEntry, StockItem } from '@/types'
+import type { LedgerEntry, Role, StockItem } from '@/types'
 import { AddItemDialog } from '@/components/ui/AddItemDialog'
 import type { AddItemFormValues } from '@/components/ui/AddItemDialog'
 import { toast } from 'sonner'
@@ -43,12 +42,11 @@ const columns: ColumnDef<LedgerEntry, unknown>[] = [
   { accessorKey: 'balance_after', header: 'Balance', cell: ({ getValue }) => <span className="font-medium">{(getValue() as number).toLocaleString('en-IN')}</span> },
 ]
 
-export default function ItemMasterClient({ initialCode }: { initialCode?: string }) {
+export default function ItemMasterClient({ initialCode, role }: { initialCode?: string; role: Role }) {
   const router = useRouter()
-  const { data: session } = useSession()
   const queryClient = useQueryClient()
-  const isAdmin = session?.user?.role === 'admin'
-  const [search, setSearch] = useState('')
+  const isAdmin = role === 'admin'
+  const [search, setSearch] = useState(initialCode ?? '')
   const [open, setOpen] = useState(false)
   const [selectedCode, setSelectedCode] = useState(initialCode ?? '')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
@@ -79,13 +77,6 @@ export default function ItemMasterClient({ initialCode }: { initialCode?: string
       return response.json() as Promise<StockItem[]>
     },
   })
-
-  useEffect(() => {
-    if (initialCode && stocks.length > 0 && !search) {
-      const found = stocks.find(s => s.item_code === initialCode)
-      if (found) setSearch(found.item_name)
-    }
-  }, [stocks.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data: entries = [], isLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['ledger', 'item', selectedCode],

@@ -178,37 +178,3 @@ export async function parseBatchResponse(response: Response): Promise<BatchOpera
     duplicate: data.duplicate,
   };
 }
-
-function getStringCell(row: SpreadsheetRow, keys: string[]): string {
-  for (const key of keys) {
-    const value = row[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return String(value).trim();
-    }
-  }
-
-  return '';
-}
-
-function getNumberCell(row: SpreadsheetRow, keys: string[]): number {
-  for (const key of keys) {
-    const value = row[key];
-
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === 'string' && value.trim()) {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return 0;
-}

@@ -193,7 +193,7 @@ export default function StockInClient() {
                     onMouseDown={openAddNewDialog}
                     className="w-full text-left px-3 py-2.5 hover:bg-gray-50 text-sm text-blue-600"
                   >
-                    + Add "{search.trim()}" as new item
+                    + Add &ldquo;{search.trim()}&rdquo; as new item
                   </button>
                 )}
               </div>

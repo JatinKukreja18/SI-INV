@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 export interface AddItemFormValues {
   item_code: string;
@@ -21,13 +21,41 @@ interface AddItemDialogProps {
 const empty: AddItemFormValues = { item_code: '', item_name: '', ean_code: '', qty: 1, unit_price: 0 };
 
 export function AddItemDialog({ open, defaultValues, showStockFields = true, onClose, onConfirm }: AddItemDialogProps) {
-  const [form, setForm] = useState<AddItemFormValues>({ ...empty, ...defaultValues });
-
-  useEffect(() => {
-    if (open) setForm({ ...empty, ...defaultValues });
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
   if (!open) return null;
+
+  const initialForm = { ...empty, ...defaultValues };
+  const dialogKey = [
+    initialForm.item_code,
+    initialForm.item_name,
+    initialForm.ean_code,
+    initialForm.qty,
+    initialForm.unit_price,
+    showStockFields ? 'stock' : 'lookup',
+  ].join('|');
+
+  return (
+    <AddItemDialogContent
+      key={dialogKey}
+      initialForm={initialForm}
+      showStockFields={showStockFields}
+      onClose={onClose}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+function AddItemDialogContent({
+  initialForm,
+  showStockFields,
+  onClose,
+  onConfirm,
+}: {
+  initialForm: AddItemFormValues;
+  showStockFields: boolean;
+  onClose: () => void;
+  onConfirm: (values: AddItemFormValues) => void;
+}) {
+  const [form, setForm] = useState<AddItemFormValues>(initialForm);
 
   function set<K extends keyof AddItemFormValues>(k: K, v: AddItemFormValues[K]) {
     setForm(prev => ({ ...prev, [k]: v }));

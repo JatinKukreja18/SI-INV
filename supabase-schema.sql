@@ -333,6 +333,211 @@ begin
 end;
 $$;
 
+create or replace function update_stock_in_batch(
+  p_batch_id uuid,
+  p_items jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_batch upload_batches%rowtype;
+  v_expected_count integer;
+  v_actual_count integer;
+  v_invalid_balances jsonb := '[]'::jsonb;
+begin
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array('No batch items provided.')
+    );
+  end if;
+
+  select *
+    into v_batch
+    from upload_batches
+   where id = p_batch_id
+     and batch_type = 'stock_in'
+   for update;
+
+  if not found then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array('Stock-in batch not found.')
+    );
+  end if;
+
+  v_expected_count := jsonb_array_length(p_items);
+
+  create temporary table tmp_batch_updates (
+    entry_id uuid primary key,
+    item_code text not null,
+    old_qty numeric not null,
+    new_qty numeric not null,
+    unit_price numeric not null,
+    item_name text not null
+  ) on commit drop;
+
+  insert into tmp_batch_updates (entry_id, item_code, old_qty, new_qty, unit_price, item_name)
+  select
+    le.id,
+    le.item_code,
+    le.qty,
+    updated.qty,
+    updated.unit_price,
+    btrim(updated.item_name)
+  from jsonb_to_recordset(p_items) as updated(
+    entry_id uuid,
+    qty numeric,
+    unit_price numeric,
+    item_name text
+  )
+  join ledger_entries le
+    on le.id = updated.entry_id
+   and le.upload_batch_id = p_batch_id
+   and le.entry_type = 'in'
+  where updated.qty > 0
+    and updated.unit_price >= 0
+    and btrim(coalesce(updated.item_name, '')) <> '';
+
+  get diagnostics v_actual_count = row_count;
+
+  if v_actual_count <> v_expected_count then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array('One or more batch rows are invalid, duplicated, or do not belong to this stock-in batch.')
+    );
+  end if;
+
+  create temporary table tmp_affected_items (
+    item_code text primary key
+  ) on commit drop;
+
+  insert into tmp_affected_items (item_code)
+  select distinct item_code
+  from tmp_batch_updates;
+
+  with prospective_entries as (
+    select
+      le.id,
+      le.item_code,
+      le.item_name,
+      le.entry_type,
+      le.entry_date,
+      le.created_at,
+      coalesce(tbu.new_qty, le.qty) as effective_qty
+    from ledger_entries le
+    left join tmp_batch_updates tbu
+      on tbu.entry_id = le.id
+    where le.item_code in (select item_code from tmp_affected_items)
+  ),
+  balances as (
+    select
+      id,
+      item_code,
+      item_name,
+      entry_type,
+      entry_date,
+      sum(
+        case
+          when entry_type = 'in' then effective_qty
+          else -effective_qty
+        end
+      ) over (
+        partition by item_code
+        order by entry_date, created_at, id
+      ) as running_balance
+    from prospective_entries
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'item_code', item_code,
+        'item_name', item_name,
+        'entry_date', entry_date,
+        'balance_after', running_balance
+      )
+      order by entry_date, id
+    ),
+    '[]'::jsonb
+  )
+    into v_invalid_balances
+  from balances
+  where running_balance < 0;
+
+  if jsonb_array_length(v_invalid_balances) > 0 then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array('This edit would make inventory go negative for one or more historical ledger rows.'),
+      'invalidBalances', v_invalid_balances
+    );
+  end if;
+
+  update ledger_entries le
+     set qty = tbu.new_qty,
+         unit_price = tbu.unit_price,
+         item_name = tbu.item_name
+    from tmp_batch_updates tbu
+   where le.id = tbu.entry_id;
+
+  with recomputed_balances as (
+    select
+      le.id,
+      sum(
+        case
+          when le.entry_type = 'in' then le.qty
+          else -le.qty
+        end
+      ) over (
+        partition by le.item_code
+        order by le.entry_date, le.created_at, le.id
+      ) as running_balance
+    from ledger_entries le
+    where le.item_code in (select item_code from tmp_affected_items)
+  )
+  update ledger_entries le
+     set balance_after = rb.running_balance
+    from recomputed_balances rb
+   where le.id = rb.id;
+
+  with latest_item_rows as (
+    select distinct on (le.item_code)
+      le.item_code,
+      le.item_name,
+      le.unit_price,
+      le.balance_after
+    from ledger_entries le
+    where le.item_code in (select item_code from tmp_affected_items)
+    order by le.item_code, le.entry_date desc, le.created_at desc, le.id desc
+  )
+  update stock_items si
+     set current_qty = lir.balance_after,
+         item_name = lir.item_name,
+         last_price = lir.unit_price,
+         updated_at = now()
+    from latest_item_rows lir
+   where si.item_code = lir.item_code;
+
+  return jsonb_build_object(
+    'success', true,
+    'updatedCount', v_actual_count
+  );
+exception
+  when unique_violation then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array('Duplicate ledger entries were submitted in the same edit request.')
+    );
+  when others then
+    return jsonb_build_object(
+      'success', false,
+      'errors', jsonb_build_array(sqlerrm)
+    );
+end;
+$$;
+
 -- Create users manually with strong passwords.
 -- Example:
 -- insert into users (name, email, password_hash, role)
