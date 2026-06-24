@@ -7,6 +7,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [dataScope, setDataScope] = useState<'live' | 'demo'>('demo')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,7 +16,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await signIn('credentials', { email, password, redirect: false })
+    const res = await signIn('credentials', { email, password, dataScope, redirect: false })
     setLoading(false)
     if (res?.error) setError('Invalid email or password')
     else router.push('/dashboard')
@@ -70,6 +71,27 @@ export default function LoginPage() {
                   </svg>
                 )}
               </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Store</label>
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-gray-50 p-1">
+              {(['demo', 'live'] as const).map((scope) => {
+                const active = dataScope === scope
+                return (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setDataScope(scope)}
+                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    {scope === 'demo' ? 'Demo Store' : 'Live Store'}
+                  </button>
+                )
+              })}
             </div>
           </div>
 

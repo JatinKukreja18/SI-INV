@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerAuthSession } from '@/lib/server-auth'
+import { getSessionDataScope } from '@/lib/data-scope'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   const session = await getServerAuthSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const dataScope = getSessionDataScope(session)
 
   const now = new Date()
   const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
@@ -13,6 +15,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from('ledger_entries')
     .select('entry_date, qty, unit_price, unit_cost')
+    .eq('data_scope', dataScope)
     .eq('entry_type', 'out')
     .gte('entry_date', from)
     .lte('entry_date', to)

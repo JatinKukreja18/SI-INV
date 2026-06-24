@@ -10,6 +10,7 @@ import { AddItemDialog } from '@/components/ui/AddItemDialog'
 import type { AddItemFormValues } from '@/components/ui/AddItemDialog'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/format'
+import { fetchJsonArray } from '@/lib/api-client'
 
 const columns: ColumnDef<LedgerEntry, unknown>[] = [
   {
@@ -72,18 +73,12 @@ export default function ItemMasterClient({ initialCode, role }: { initialCode?: 
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const response = await fetch('/api/stock')
-      return response.json() as Promise<StockItem[]>
-    },
+    queryFn: () => fetchJsonArray<StockItem>('/api/stock'),
   })
 
   const { data: entries = [], isLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['ledger', 'item', selectedCode],
-    queryFn: async () => {
-      const response = await fetch(`/api/stock/ledger?type=item&code=${selectedCode}`)
-      return response.json() as Promise<LedgerEntry[]>
-    },
+    queryFn: () => fetchJsonArray<LedgerEntry>(`/api/stock/ledger?type=item&code=${selectedCode}`),
     enabled: Boolean(selectedCode),
   })
 

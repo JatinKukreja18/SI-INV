@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import type { Role } from '@/types';
+import type { DataScope, Role } from '@/types';
 
 const adminNav = [
   { href: '/dashboard', label: 'Dashboard', icon: '▦' },
@@ -23,10 +23,11 @@ const staffNav = [
 type SidebarProps = {
   actualRole: Role;
   effectiveRole: Role;
+  dataScope: DataScope;
   userName: string;
 };
 
-export function Sidebar({ actualRole, effectiveRole, userName }: SidebarProps) {
+export function Sidebar({ actualRole, effectiveRole, dataScope, userName }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const nav = effectiveRole === 'admin' ? adminNav : staffNav;
@@ -48,6 +49,11 @@ export function Sidebar({ actualRole, effectiveRole, userName }: SidebarProps) {
       <div className="px-5 py-4 border-b border-gray-100">
         <p className="text-sm font-medium text-gray-900">StockLedger</p>
         <p className="text-xs text-gray-400 mt-0.5 truncate">{userName}</p>
+        <p className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+          dataScope === 'live' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+        }`}>
+          {dataScope === 'live' ? 'Live Store' : 'Demo Store'}
+        </p>
         <div className="py-1.5 mb-1">
           <span
             className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${

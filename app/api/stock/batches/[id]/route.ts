@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerAuthSession } from '@/lib/server-auth'
+import { getSessionDataScope } from '@/lib/data-scope'
 import { supabaseAdmin } from '@/lib/supabase'
 import { z } from 'zod'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerAuthSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const dataScope = getSessionDataScope(session)
 
   const { id } = await params
 
   const { data, error } = await supabaseAdmin
     .from('ledger_entries')
     .select('*')
+    .eq('data_scope', dataScope)
     .eq('upload_batch_id', id)
     .order('created_at', { ascending: true })
 
@@ -32,6 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const session = await getServerAuthSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (session.user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const dataScope = getSessionDataScope(session)
 
   const { id } = await params
   const body = await req.json() as unknown
@@ -39,6 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!parsed.success) return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
   const { data, error } = await supabaseAdmin.rpc('update_stock_in_batch', {
+    p_data_scope: dataScope,
     p_batch_id: id,
     p_items: parsed.data.items,
   })

@@ -8,6 +8,7 @@ import { DataTable } from '@/components/ui/DataTable';
 import { buildUploadPreview, findHeaderRow, normalizeSheetRows, parseBatchResponse } from '@/lib/inventory';
 import type { BatchOperationResult, PostedBatchItem, StockItem, UploadPreviewRow } from '@/types';
 import { toast } from 'sonner';
+import { fetchJsonArray } from '@/lib/api-client';
 
 const confirmColumns: ColumnDef<UploadPreviewRow, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
@@ -57,10 +58,7 @@ export default function UploadPage() {
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const response = await fetch('/api/stock');
-      return response.json() as Promise<StockItem[]>;
-    },
+    queryFn: () => fetchJsonArray<StockItem>('/api/stock'),
   });
 
   function handleFile(event: React.ChangeEvent<HTMLInputElement>) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadPayloadSchema } from '@/lib/inventory'
 import { getServerAuthSession } from '@/lib/server-auth'
+import { getSessionDataScope } from '@/lib/data-scope'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { BatchOperationResult } from '@/types'
 
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const dataScope = getSessionDataScope(session)
 
   const parsedPayload = uploadPayloadSchema.safeParse(await req.json())
   if (!parsedPayload.success) {
@@ -22,6 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabaseAdmin.rpc('post_inventory_batch', {
+    p_data_scope: dataScope,
     p_batch_type: 'edit_out',
     p_entry_date: parsedPayload.data.date,
     p_filename: parsedPayload.data.filename,

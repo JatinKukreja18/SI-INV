@@ -14,7 +14,8 @@ create table if not exists users (
 -- Stock master table (current balance per item)
 create table if not exists stock_items (
   id uuid primary key default gen_random_uuid(),
-  item_code text unique not null,
+  data_scope text not null default 'demo' check (data_scope in ('live', 'demo')),
+  item_code text not null,
   item_name text not null,
   current_qty numeric not null default 0,
   last_price numeric not null default 0,
@@ -23,12 +24,26 @@ create table if not exists stock_items (
   updated_at timestamptz default now()
 );
 alter table stock_items add column if not exists ean_code text;
+alter table stock_items add column if not exists data_scope text not null default 'demo';
+alter table stock_items
+  drop constraint if exists stock_items_data_scope_check;
+alter table stock_items
+  add constraint stock_items_data_scope_check
+  check (data_scope in ('live', 'demo'));
+alter table stock_items
+  drop constraint if exists stock_items_item_code_key cascade;
+alter table stock_items
+  drop constraint if exists stock_items_data_scope_item_code_key cascade;
+alter table stock_items
+  add constraint stock_items_data_scope_item_code_key
+  unique (data_scope, item_code);
 
 -- Ledger entries (every IN and OUT event)
 create table if not exists ledger_entries (
   id uuid primary key default gen_random_uuid(),
+  data_scope text not null default 'demo' check (data_scope in ('live', 'demo')),
   entry_date date not null,
-  item_code text not null references stock_items(item_code),
+  item_code text not null,
   item_name text not null,
   entry_type text not null check (entry_type in ('in', 'out')),
   qty numeric not null,
@@ -38,10 +53,25 @@ create table if not exists ledger_entries (
   created_by uuid references users(id),
   created_at timestamptz default now()
 );
+alter table ledger_entries add column if not exists data_scope text not null default 'demo';
+alter table ledger_entries
+  drop constraint if exists ledger_entries_data_scope_check;
+alter table ledger_entries
+  add constraint ledger_entries_data_scope_check
+  check (data_scope in ('live', 'demo'));
+alter table ledger_entries
+  drop constraint if exists ledger_entries_item_code_fkey;
+alter table ledger_entries
+  drop constraint if exists ledger_entries_data_scope_item_code_fkey;
+alter table ledger_entries
+  add constraint ledger_entries_data_scope_item_code_fkey
+  foreign key (data_scope, item_code)
+  references stock_items(data_scope, item_code);
 
 -- Upload batches (track each stock posting batch)
 create table if not exists upload_batches (
   id uuid primary key default gen_random_uuid(),
+  data_scope text not null default 'demo' check (data_scope in ('live', 'demo')),
   upload_date date not null,
   batch_type text not null default 'edit_out' check (batch_type in ('stock_in', 'edit_out')),
   filename text,
@@ -50,6 +80,12 @@ create table if not exists upload_batches (
   duplicate_override boolean not null default false,
   created_at timestamptz default now()
 );
+alter table upload_batches add column if not exists data_scope text not null default 'demo';
+alter table upload_batches
+  drop constraint if exists upload_batches_data_scope_check;
+alter table upload_batches
+  add constraint upload_batches_data_scope_check
+  check (data_scope in ('live', 'demo'));
 
 alter table upload_batches add column if not exists batch_type text not null default 'edit_out';
 alter table upload_batches add column if not exists duplicate_override boolean not null default false;
@@ -64,12 +100,18 @@ alter table upload_batches
 alter table ledger_entries add column if not exists unit_cost numeric not null default 0;
 
 -- Indexes
-create index if not exists idx_ledger_date on ledger_entries(entry_date);
-create index if not exists idx_ledger_code on ledger_entries(item_code);
-create index if not exists idx_ledger_batch on ledger_entries(upload_batch_id);
-create index if not exists idx_upload_batches_lookup on upload_batches(batch_type, upload_date, filename);
+drop index if exists idx_ledger_date;
+drop index if exists idx_ledger_code;
+drop index if exists idx_ledger_batch;
+drop index if exists idx_upload_batches_lookup;
+create index if not exists idx_ledger_date on ledger_entries(data_scope, entry_date);
+create index if not exists idx_ledger_code on ledger_entries(data_scope, item_code);
+create index if not exists idx_ledger_batch on ledger_entries(data_scope, upload_batch_id);
+create index if not exists idx_upload_batches_lookup on upload_batches(data_scope, batch_type, upload_date, filename);
 
+drop function if exists post_inventory_batch(text, date, text, jsonb, uuid, boolean);
 create or replace function post_inventory_batch(
+  p_data_scope text,
   p_batch_type text,
   p_entry_date date,
   p_filename text,
@@ -98,6 +140,10 @@ declare
   v_price numeric;
   v_cost numeric;
 begin
+  if p_data_scope not in ('live', 'demo') then
+    raise exception 'Unsupported data scope: %', p_data_scope;
+  end if;
+
   if p_batch_type not in ('stock_in', 'edit_out') then
     raise exception 'Unsupported batch type: %', p_batch_type;
   end if;
@@ -117,6 +163,7 @@ begin
       into v_duplicate_batch_id
       from upload_batches
      where batch_type = p_batch_type
+       and data_scope = p_data_scope
        and upload_date = p_entry_date
        and filename = p_filename
      order by created_at desc
@@ -171,7 +218,8 @@ begin
       select *
         into v_existing
         from stock_items
-       where item_code = v_item_code
+       where data_scope = p_data_scope
+         and item_code = v_item_code
        for update;
 
       if not found then
@@ -205,6 +253,7 @@ begin
   end if;
 
   insert into upload_batches (
+    data_scope,
     upload_date,
     batch_type,
     filename,
@@ -212,6 +261,7 @@ begin
     uploaded_by,
     duplicate_override
   ) values (
+    p_data_scope,
     p_entry_date,
     p_batch_type,
     p_filename,
@@ -231,6 +281,7 @@ begin
 
     if p_batch_type = 'stock_in' then
       insert into stock_items (
+        data_scope,
         item_code,
         item_name,
         current_qty,
@@ -238,6 +289,7 @@ begin
         ean_code,
         updated_at
       ) values (
+        p_data_scope,
         v_item_code,
         v_item_name,
         v_qty,
@@ -245,7 +297,7 @@ begin
         nullif(btrim(coalesce(v_row->>'ean_code', '')), ''),
         now()
       )
-      on conflict (item_code)
+      on conflict (data_scope, item_code)
       do update
         set item_name = excluded.item_name,
             current_qty = stock_items.current_qty + excluded.current_qty,
@@ -255,6 +307,7 @@ begin
       returning current_qty - v_qty, current_qty into v_previous_qty, v_new_qty;
 
       insert into ledger_entries (
+        data_scope,
         entry_date,
         item_code,
         item_name,
@@ -266,6 +319,7 @@ begin
         upload_batch_id,
         created_by
       ) values (
+        p_data_scope,
         p_entry_date,
         v_item_code,
         v_item_name,
@@ -283,10 +337,12 @@ begin
              item_name = v_item_name,
              last_price = v_price,
              updated_at = now()
-       where item_code = v_item_code
+       where data_scope = p_data_scope
+         and item_code = v_item_code
        returning current_qty + v_qty, current_qty into v_previous_qty, v_new_qty;
 
       insert into ledger_entries (
+        data_scope,
         entry_date,
         item_code,
         item_name,
@@ -298,6 +354,7 @@ begin
         upload_batch_id,
         created_by
       ) values (
+        p_data_scope,
         p_entry_date,
         v_item_code,
         v_item_name,
@@ -333,7 +390,9 @@ begin
 end;
 $$;
 
+drop function if exists update_stock_in_batch(uuid, jsonb);
 create or replace function update_stock_in_batch(
+  p_data_scope text,
   p_batch_id uuid,
   p_items jsonb
 )
@@ -348,6 +407,10 @@ declare
   v_actual_count integer;
   v_invalid_balances jsonb := '[]'::jsonb;
 begin
+  if p_data_scope not in ('live', 'demo') then
+    raise exception 'Unsupported data scope: %', p_data_scope;
+  end if;
+
   if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) = 0 then
     return jsonb_build_object(
       'success', false,
@@ -359,6 +422,7 @@ begin
     into v_batch
     from upload_batches
    where id = p_batch_id
+     and data_scope = p_data_scope
      and batch_type = 'stock_in'
    for update;
 
@@ -373,6 +437,7 @@ begin
 
   create temporary table tmp_batch_updates (
     entry_id uuid primary key,
+    data_scope text not null,
     item_code text not null,
     old_qty numeric not null,
     new_qty numeric not null,
@@ -380,9 +445,10 @@ begin
     item_name text not null
   ) on commit drop;
 
-  insert into tmp_batch_updates (entry_id, item_code, old_qty, new_qty, unit_price, item_name)
+  insert into tmp_batch_updates (entry_id, data_scope, item_code, old_qty, new_qty, unit_price, item_name)
   select
     le.id,
+    le.data_scope,
     le.item_code,
     le.qty,
     updated.qty,
@@ -396,6 +462,7 @@ begin
   )
   join ledger_entries le
     on le.id = updated.entry_id
+   and le.data_scope = p_data_scope
    and le.upload_batch_id = p_batch_id
    and le.entry_type = 'in'
   where updated.qty > 0
@@ -431,7 +498,8 @@ begin
     from ledger_entries le
     left join tmp_batch_updates tbu
       on tbu.entry_id = le.id
-    where le.item_code in (select item_code from tmp_affected_items)
+    where le.data_scope = p_data_scope
+      and le.item_code in (select item_code from tmp_affected_items)
   ),
   balances as (
     select
@@ -495,7 +563,8 @@ begin
         order by le.entry_date, le.created_at, le.id
       ) as running_balance
     from ledger_entries le
-    where le.item_code in (select item_code from tmp_affected_items)
+    where le.data_scope = p_data_scope
+      and le.item_code in (select item_code from tmp_affected_items)
   )
   update ledger_entries le
      set balance_after = rb.running_balance
@@ -509,7 +578,8 @@ begin
       le.unit_price,
       le.balance_after
     from ledger_entries le
-    where le.item_code in (select item_code from tmp_affected_items)
+    where le.data_scope = p_data_scope
+      and le.item_code in (select item_code from tmp_affected_items)
     order by le.item_code, le.entry_date desc, le.created_at desc, le.id desc
   )
   update stock_items si
@@ -518,7 +588,8 @@ begin
          last_price = lir.unit_price,
          updated_at = now()
     from latest_item_rows lir
-   where si.item_code = lir.item_code;
+   where si.data_scope = p_data_scope
+     and si.item_code = lir.item_code;
 
   return jsonb_build_object(
     'success', true,

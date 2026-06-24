@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import type { UploadBatch } from '@/types';
 import { formatDate } from '@/lib/format';
+import { fetchJsonArray } from '@/lib/api-client';
 
 type BatchWithUser = UploadBatch & {
   users: { name: string; email: string } | null;
@@ -19,10 +20,7 @@ export default function BatchHistoryClient() {
 
   const { data: batches = [], isLoading } = useQuery<BatchWithUser[]>({
     queryKey: ['stock-batches'],
-    queryFn: async () => {
-      const res = await fetch('/api/stock/batches');
-      return res.json() as Promise<BatchWithUser[]>;
-    },
+    queryFn: () => fetchJsonArray<BatchWithUser>('/api/stock/batches'),
   });
 
   return (

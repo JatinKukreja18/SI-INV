@@ -5,6 +5,7 @@ import { DataTable } from '@/components/ui/DataTable';
 import type { StockItem } from '@/types';
 import { ColumnDef } from '@tanstack/react-table';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { fetchJsonArray } from '@/lib/api-client';
 
 const columns: ColumnDef<StockItem, unknown>[] = [
   { accessorKey: 'item_code', header: 'Code' },
@@ -46,10 +47,7 @@ const columns: ColumnDef<StockItem, unknown>[] = [
 export default function DashboardPage() {
   const { data: stocks = [], isLoading } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const response = await fetch('/api/stock');
-      return response.json() as Promise<StockItem[]>;
-    },
+    queryFn: () => fetchJsonArray<StockItem>('/api/stock'),
   });
 
   const total = stocks.length;
@@ -60,10 +58,7 @@ export default function DashboardPage() {
   type SalesDay = { date: string; day: string; revenue: number; profit: number };
   const { data: salesData = [] } = useQuery<SalesDay[]>({
     queryKey: ['sales', 'monthly'],
-    queryFn: async () => {
-      const response = await fetch('/api/sales/monthly');
-      return response.json() as Promise<SalesDay[]>;
-    },
+    queryFn: () => fetchJsonArray<SalesDay>('/api/sales/monthly'),
   });
   const monthRevenue = salesData.reduce((s, d) => s + d.revenue, 0);
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerAuthSession } from '@/lib/server-auth'
+import { getSessionDataScope } from '@/lib/data-scope'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { LedgerEntry } from '@/types'
 
@@ -8,6 +9,7 @@ export async function GET(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const dataScope = getSessionDataScope(session)
 
   const { searchParams } = new URL(req.url)
   const type = searchParams.get('type')
@@ -17,6 +19,7 @@ export async function GET(req: NextRequest) {
   let query = supabaseAdmin
     .from('ledger_entries')
     .select('*')
+    .eq('data_scope', dataScope)
     .order('entry_date', { ascending: false })
     .order('created_at', { ascending: false })
 

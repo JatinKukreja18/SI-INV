@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stockInPayloadSchema } from '@/lib/inventory'
 import { getServerAuthSession } from '@/lib/server-auth'
+import { getSessionDataScope } from '@/lib/data-scope'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { BatchOperationResult, StockItem } from '@/types'
 
@@ -9,10 +10,12 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  const dataScope = getSessionDataScope(session)
 
   const { data, error } = await supabaseAdmin
     .from('stock_items')
     .select('*')
+    .eq('data_scope', dataScope)
     .order('item_name')
 
   if (error) {
@@ -31,6 +34,7 @@ export async function POST(req: NextRequest) {
   if (session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+  const dataScope = getSessionDataScope(session)
 
   const parsedPayload = stockInPayloadSchema.safeParse(await req.json())
   if (!parsedPayload.success) {
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabaseAdmin.rpc('post_inventory_batch', {
+    p_data_scope: dataScope,
     p_batch_type: 'stock_in',
     p_entry_date: parsedPayload.data.date,
     p_filename: null,

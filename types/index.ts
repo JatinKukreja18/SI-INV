@@ -1,10 +1,12 @@
 export type Role = 'admin' | 'staff';
+export type DataScope = 'live' | 'demo';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
+  dataScope: DataScope;
 }
 
 interface ItemIdentity {
@@ -17,6 +19,7 @@ interface BaseItem extends ItemIdentity {
 export type EntryType = 'in' | 'out';
 export type BatchType = 'stock_in' | 'edit_out';
 export interface StockItem extends BaseItem {
+  data_scope: DataScope;
   current_qty: number;
   last_price: number;
   ean_code?: string;
@@ -25,6 +28,7 @@ export interface StockItem extends BaseItem {
 }
 
 export interface LedgerEntry extends BaseItem {
+  data_scope: DataScope;
   entry_date: string;
   entry_type: EntryType;
   qty: number;
@@ -38,6 +42,7 @@ export interface LedgerEntry extends BaseItem {
 
 export interface UploadBatch {
   id: string;
+  data_scope: DataScope;
   upload_date: string;
   batch_type: BatchType;
   filename?: string;

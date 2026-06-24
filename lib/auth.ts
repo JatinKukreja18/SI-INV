@@ -2,7 +2,8 @@ import NextAuth, { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { supabaseAdmin } from '@/lib/supabase'
-import type { Role } from '@/types'
+import { isDataScope } from '@/lib/data-scope'
+import type { DataScope, Role } from '@/types'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,9 +12,11 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        dataScope: { label: 'Store', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+        const dataScope: DataScope = isDataScope(credentials.dataScope) ? credentials.dataScope : 'demo'
 
         const { data: user, error } = await supabaseAdmin
           .from('users')
@@ -31,6 +34,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role as Role,
+          dataScope,
         }
       },
     }),
@@ -40,6 +44,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.dataScope = user.dataScope
       }
       if (trigger === 'update' && session?.name) {
         token.name = session.name
@@ -50,6 +55,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id
         session.user.role = token.role
+        session.user.dataScope = token.dataScope ?? 'demo'
       }
       return session
     },

@@ -9,6 +9,7 @@ import type { BatchItemInput, BatchOperationResult, StockItem } from '@/types';
 import { toast } from 'sonner';
 import { AddItemDialog } from '@/components/ui/AddItemDialog';
 import type { AddItemFormValues } from '@/components/ui/AddItemDialog';
+import { fetchJsonArray } from '@/lib/api-client';
 
 export default function StockInClient() {
   const queryClient = useQueryClient();
@@ -25,10 +26,7 @@ export default function StockInClient() {
 
   const { data: stocks = [] } = useQuery<StockItem[]>({
     queryKey: ['stocks'],
-    queryFn: async () => {
-      const response = await fetch('/api/stock');
-      return response.json() as Promise<StockItem[]>;
-    },
+    queryFn: () => fetchJsonArray<StockItem>('/api/stock'),
   });
 
   const stockMap = Object.fromEntries(stocks.map((s) => [s.item_code, s]));

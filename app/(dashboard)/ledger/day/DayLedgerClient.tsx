@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/ui/DataTable'
 import type { LedgerEntry } from '@/types'
+import { fetchJsonArray } from '@/lib/api-client'
 
 interface MergedDayRow {
   item_code: string
@@ -105,10 +106,7 @@ export default function DayLedgerClient() {
 
   const { data: entries = [], isLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['ledger', 'day', date],
-    queryFn: async () => {
-      const response = await fetch(`/api/stock/ledger?type=day&date=${date}`)
-      return response.json() as Promise<LedgerEntry[]>
-    },
+    queryFn: () => fetchJsonArray<LedgerEntry>(`/api/stock/ledger?type=day&date=${date}`),
     enabled: Boolean(date),
   })
 

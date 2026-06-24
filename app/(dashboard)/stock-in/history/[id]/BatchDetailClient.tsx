@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { LedgerEntry, UploadBatch, Role } from '@/types';
 import { formatDate } from '@/lib/format';
+import { fetchJsonArray } from '@/lib/api-client';
 
 type BatchWithUser = UploadBatch & {
   users: { name: string; email: string } | null;
@@ -21,18 +22,12 @@ export default function BatchDetailClient({ batchId, role }: { batchId: string; 
 
   const { data: entries = [], isLoading: entriesLoading } = useQuery<LedgerEntry[]>({
     queryKey: ['batch-entries', batchId],
-    queryFn: async () => {
-      const res = await fetch(`/api/stock/batches/${batchId}`);
-      return res.json() as Promise<LedgerEntry[]>;
-    },
+    queryFn: () => fetchJsonArray<LedgerEntry>(`/api/stock/batches/${batchId}`),
   });
 
   const { data: batches = [] } = useQuery<BatchWithUser[]>({
     queryKey: ['stock-batches'],
-    queryFn: async () => {
-      const res = await fetch('/api/stock/batches');
-      return res.json() as Promise<BatchWithUser[]>;
-    },
+    queryFn: () => fetchJsonArray<BatchWithUser>('/api/stock/batches'),
   });
 
   const batch = batches.find((b) => b.id === batchId);
